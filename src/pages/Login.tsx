@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import premiroLogo from "@/assets/premiro-logo.jpg";
+import premiroLogo from "@/assets/premiro-logo.png";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
