@@ -1,10 +1,11 @@
 import { useParams, Link } from "react-router-dom";
 import { format } from "date-fns";
-import { ArrowLeft, Edit, Download, FileText, Users, Calendar, Shield } from "lucide-react";
+import { ArrowLeft, Edit, Download, FileText, Users, Calendar, Shield, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/quotation/StatusBadge";
 import type { QuotationData } from "@/types/quotation";
+import { INSURANCE_COMPANIES } from "@/types/quotation";
 
 // Default member breakdown helper
 const defaultMembers = {
@@ -172,6 +173,30 @@ export default function QuotationDetails() {
                 <p className="text-sm text-muted-foreground">End Date</p>
                 <p className="font-medium">{format(quotation.endDate, "MMMM d, yyyy")}</p>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Insurance Companies */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Building2 className="w-5 h-5 text-primary" />
+              Insurance Companies
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {quotation.insuranceCompanies.map((insurer) => (
+                <div
+                  key={insurer}
+                  className="px-4 py-2 bg-primary/10 border border-primary/30 rounded-lg"
+                >
+                  <p className="text-sm font-medium text-primary">
+                    {INSURANCE_COMPANIES[insurer]}
+                  </p>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

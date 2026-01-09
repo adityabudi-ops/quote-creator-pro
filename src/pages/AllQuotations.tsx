@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { StatusBadge } from "@/components/quotation/StatusBadge";
 import type { QuotationData, QuotationStatus } from "@/types/quotation";
+import { INSURANCE_COMPANIES } from "@/types/quotation";
 
 // Default member breakdown helper
 const defaultMembers = {
@@ -235,6 +236,7 @@ export default function AllQuotations() {
                 <th>Insured Name</th>
                 <th>Policy Period</th>
                 <th>Benefits</th>
+                <th>Insurance</th>
                 <th>Members</th>
                 <th>Status</th>
                 <th>Created By</th>
@@ -248,7 +250,7 @@ export default function AllQuotations() {
                   <td>
                     <div>
                       <p className="font-medium">{quotation.insuredName}</p>
-                      <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                      <p className="text-xs text-muted-foreground truncate max-w-[180px]">
                         {quotation.insuredAddress}
                       </p>
                     </div>
@@ -263,6 +265,18 @@ export default function AllQuotations() {
                   </td>
                   <td>
                     <span className="text-sm">{getBenefitsSummary(quotation.benefits)}</span>
+                  </td>
+                  <td>
+                    <div className="flex flex-wrap gap-1 max-w-[150px]">
+                      {quotation.insuranceCompanies.map((ins) => (
+                        <span 
+                          key={ins} 
+                          className="text-[10px] font-medium px-1.5 py-0.5 bg-secondary/50 text-secondary-foreground rounded"
+                        >
+                          {ins.toUpperCase()}
+                        </span>
+                      ))}
+                    </div>
                   </td>
                   <td>{getTotalMembers(quotation.insuredGroups)}</td>
                   <td>
