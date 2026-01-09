@@ -205,7 +205,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
     }
   }, [watchStartDate, form]);
 
-  // Sync benefit groups: when In-Patient changes, sync rows to other selected benefits
+  // Sync benefit groups: when benefits selection changes, sync row count (not member counts)
   useEffect(() => {
     const selectedBenefits = {
       inPatient: watchInPatient,
@@ -226,14 +226,15 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
           if (benefit === 'inPatient') {
             newGroups.inPatient = inPatientGroups;
           } else {
-            // Sync rows from In-Patient: same number of rows with same member counts
+            // Sync row count from In-Patient, but keep existing member counts if available
             newGroups[benefit] = inPatientGroups.map((ipGroup, index) => {
               const existingGroup = prev[benefit]?.[index];
               return {
                 id: existingGroup?.id || `${benefit}-${index + 1}`,
                 benefitType: benefit as BenefitGroup['benefitType'],
                 planName: existingGroup?.planName || "",
-                members: { ...ipGroup.members }, // Copy member counts from In-Patient
+                // Keep existing member counts if editing, otherwise copy from In-Patient as default
+                members: existingGroup?.members || { ...ipGroup.members },
               };
             });
           }
@@ -244,7 +245,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
     });
   }, [watchInPatient, watchOutPatient, watchDental, watchMaternity]);
 
-  // When In-Patient group structure changes, sync to other benefits
+  // When In-Patient group structure changes, sync row count to other benefits (not member counts)
   const addGroup = () => {
     setBenefitGroups((prev) => {
       const newInPatientGroups = [
@@ -254,14 +255,15 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
       
       const newGroups: Record<string, BenefitGroup[]> = { inPatient: newInPatientGroups };
       
-      // Sync new row to other selected benefits
+      // Sync new row to other selected benefits (add empty row, don't copy members)
       Object.keys(prev).forEach((benefit) => {
         if (benefit !== 'inPatient') {
           newGroups[benefit] = newInPatientGroups.map((ipGroup, index) => ({
             id: prev[benefit]?.[index]?.id || `${benefit}-${Date.now()}-${index}`,
             benefitType: benefit as BenefitGroup['benefitType'],
             planName: prev[benefit]?.[index]?.planName || "",
-            members: { ...ipGroup.members },
+            // Keep existing members if row exists, otherwise use default
+            members: prev[benefit]?.[index]?.members || { ...DEFAULT_MEMBERS },
           }));
         }
       });
@@ -321,6 +323,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
 
   const validateGroups = (): boolean => {
     const errors: string[] = [];
+    const inPatientTotal = getTotalMembers("inPatient");
 
     Object.entries(benefitGroups).forEach(([benefitType, groups]) => {
       const planNames = new Set<string>();
@@ -348,6 +351,14 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
       // Check ascending order
       if (groups.length > 1 && groups.every(g => g.planName) && !arePlansAscending(groups)) {
         errors.push(`${BENEFIT_LABELS[benefitType]} plans must be in ascending order`);
+      }
+
+      // Validate total members match In-Patient for other benefits
+      if (benefitType !== 'inPatient') {
+        const benefitTotal = getTotalMembers(benefitType);
+        if (benefitTotal !== inPatientTotal) {
+          errors.push(`${BENEFIT_LABELS[benefitType]} total members (${benefitTotal}) must match In-Patient total (${inPatientTotal})`);
+        }
       }
     });
 
@@ -982,74 +993,135 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                 </CardContent>
               </Card>
 
-              {/* Other Benefits - Plan selection only, members synced from In-Patient */}
-              {selectedBenefits.filter(b => b !== 'inPatient').map((benefitType) => (
-                <Card key={benefitType} className="form-section">
-                  <CardHeader>
-                    <CardTitle className="form-section-title mb-0 border-b-0 pb-0">
-                      {BENEFIT_LABELS[benefitType]} Plans
-                      <span className="text-xs font-normal text-muted-foreground ml-2">(Members synced from In-Patient)</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto">
-                      <table className="data-table">
-                        <thead>
-                          <tr>
-                            <th rowSpan={2} className="align-bottom">Plan Name</th>
-                            <th colSpan={3} className="text-center border-b-0">Age 0-59</th>
-                            <th colSpan={2} className="text-center border-b-0">Age 60-64</th>
-                            <th rowSpan={2} className="align-bottom text-center">Total</th>
-                          </tr>
-                          <tr>
-                            <th className="text-center">Male</th>
-                            <th className="text-center">Female</th>
-                            <th className="text-center">Child</th>
-                            <th className="text-center">Male</th>
-                            <th className="text-center">Female</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(benefitGroups[benefitType] || []).map((group) => (
-                            <tr key={group.id}>
-                              <td>
-                                <Select
-                                  value={group.planName}
-                                  onValueChange={(value) => updateGroup(benefitType, group.id, "planName", value)}
-                                >
-                                  <SelectTrigger className="w-full min-w-[120px]">
-                                    <SelectValue placeholder="Select a plan" />
-                                  </SelectTrigger>
-                                  <SelectContent className="bg-popover">
-                                    {PLAN_OPTIONS[benefitType as keyof typeof PLAN_OPTIONS]?.map((plan) => (
-                                      <SelectItem key={plan} value={plan}>
-                                        {plan}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </td>
-                              <td className="text-center text-muted-foreground">{group.members.male0to59}</td>
-                              <td className="text-center text-muted-foreground">{group.members.female0to59}</td>
-                              <td className="text-center text-muted-foreground">{group.members.child0to59}</td>
-                              <td className="text-center text-muted-foreground">{group.members.male60to64}</td>
-                              <td className="text-center text-muted-foreground">{group.members.female60to64}</td>
-                              <td className="text-center font-medium">{getGroupTotal(group)}</td>
+              {/* Other Benefits - Editable members with total validation */}
+              {selectedBenefits.filter(b => b !== 'inPatient').map((benefitType) => {
+                const benefitTotal = getTotalMembers(benefitType);
+                const inPatientTotal = getTotalMembers("inPatient");
+                const isTotalMismatch = benefitTotal !== inPatientTotal;
+                
+                return (
+                  <Card key={benefitType} className="form-section">
+                    <CardHeader className="flex flex-row items-center justify-between">
+                      <CardTitle className="form-section-title mb-0 border-b-0 pb-0">
+                        {BENEFIT_LABELS[benefitType]} Plans
+                        <span className="text-xs font-normal text-muted-foreground ml-2">
+                          (Total must match In-Patient: {inPatientTotal})
+                        </span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="overflow-x-auto">
+                        <table className="data-table">
+                          <thead>
+                            <tr>
+                              <th rowSpan={2} className="align-bottom">Plan Name</th>
+                              <th colSpan={3} className="text-center border-b-0">Age 0-59</th>
+                              <th colSpan={2} className="text-center border-b-0">Age 60-64</th>
+                              <th rowSpan={2} className="align-bottom text-center">Total</th>
                             </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr>
-                            <td className="font-medium">Total</td>
-                            <td colSpan={5}></td>
-                            <td className="text-center font-medium">{getTotalMembers(benefitType)}</td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                            <tr>
+                              <th className="text-center">Male</th>
+                              <th className="text-center">Female</th>
+                              <th className="text-center">Child</th>
+                              <th className="text-center">Male</th>
+                              <th className="text-center">Female</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(benefitGroups[benefitType] || []).map((group) => (
+                              <tr key={group.id}>
+                                <td>
+                                  <Select
+                                    value={group.planName}
+                                    onValueChange={(value) => updateGroup(benefitType, group.id, "planName", value)}
+                                  >
+                                    <SelectTrigger className="w-full min-w-[120px]">
+                                      <SelectValue placeholder="Select a plan" />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-popover">
+                                      {PLAN_OPTIONS[benefitType as keyof typeof PLAN_OPTIONS]?.map((plan) => (
+                                        <SelectItem key={plan} value={plan}>
+                                          {plan}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </td>
+                                <td>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    className="w-16 text-center"
+                                    value={group.members.male0to59 || ""}
+                                    onChange={(e) => updateGroup(benefitType, group.id, "male0to59", parseInt(e.target.value) || 0)}
+                                    placeholder="0"
+                                  />
+                                </td>
+                                <td>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    className="w-16 text-center"
+                                    value={group.members.female0to59 || ""}
+                                    onChange={(e) => updateGroup(benefitType, group.id, "female0to59", parseInt(e.target.value) || 0)}
+                                    placeholder="0"
+                                  />
+                                </td>
+                                <td>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    className="w-16 text-center"
+                                    value={group.members.child0to59 || ""}
+                                    onChange={(e) => updateGroup(benefitType, group.id, "child0to59", parseInt(e.target.value) || 0)}
+                                    placeholder="0"
+                                  />
+                                </td>
+                                <td>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    className="w-16 text-center"
+                                    value={group.members.male60to64 || ""}
+                                    onChange={(e) => updateGroup(benefitType, group.id, "male60to64", parseInt(e.target.value) || 0)}
+                                    placeholder="0"
+                                  />
+                                </td>
+                                <td>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    className="w-16 text-center"
+                                    value={group.members.female60to64 || ""}
+                                    onChange={(e) => updateGroup(benefitType, group.id, "female60to64", parseInt(e.target.value) || 0)}
+                                    placeholder="0"
+                                  />
+                                </td>
+                                <td className="text-center font-medium">{getGroupTotal(group)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr>
+                              <td className="font-medium">Total</td>
+                              <td colSpan={5}></td>
+                              <td className={cn(
+                                "text-center font-medium",
+                                isTotalMismatch && "text-destructive"
+                              )}>
+                                {benefitTotal}
+                                {isTotalMismatch && (
+                                  <span className="text-xs block">≠ {inPatientTotal}</span>
+                                )}
+                              </td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
               {groupErrors.length > 0 && (
                 <div className="p-4 bg-destructive/10 rounded-lg">
                   {groupErrors.map((error, idx) => (
