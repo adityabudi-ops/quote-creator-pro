@@ -21,6 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { StatusBadge } from "@/components/quotation/StatusBadge";
 import { ApprovalInfo } from "@/components/quotation/ApprovalInfo";
+import { createNotification } from "@/hooks/useNotifications";
 import type { Database } from "@/integrations/supabase/types";
 
 type QuotationStatus = Database["public"]["Enums"]["quotation_status"];
@@ -134,9 +135,31 @@ export default function Approvals() {
         });
       
       if (historyError) throw historyError;
+
+      // Create notifications based on new status
+      if (newStatus === "pending_ahli") {
+        // Notify Tenaga Ahli about pending approval
+        await createNotification({
+          targetRole: "tenaga_ahli",
+          type: "pending_approval",
+          title: "Quotation Pending Your Approval",
+          message: `Quotation ${quotation.quotation_number} for ${quotation.insured_name} has been approved by Tenaga Pialang and requires your review.`,
+          quotationId: quotation.id,
+        });
+      } else if (newStatus === "approved") {
+        // Notify the creator that quotation is approved
+        await createNotification({
+          userId: quotation.created_by,
+          type: "quotation_created",
+          title: "Quotation Approved",
+          message: `Your quotation ${quotation.quotation_number} for ${quotation.insured_name} has been fully approved.`,
+          quotationId: quotation.id,
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pending_quotations"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
       toast.success("Quotation approved");
     },
     onError: (error: Error) => {

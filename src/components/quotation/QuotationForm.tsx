@@ -16,8 +16,12 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { createNotification } from "@/hooks/useNotifications";
 import type { QuotationData, BenefitsOption, InsuranceCompany } from "@/types/quotation";
 import { BENEFITS_OPTIONS_LABELS, INSURANCE_COMPANIES } from "@/types/quotation";
+import type { Json } from "@/integrations/supabase/types";
 
 // Plan options per benefit type (sorted ascending)
 const PLAN_OPTIONS = {
@@ -120,7 +124,9 @@ interface QuotationFormProps {
 
 export function QuotationForm({ mode = "create", initialData, onCancel }: QuotationFormProps) {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedInsurers, setSelectedInsurers] = useState<InsuranceCompany[]>(
     initialData?.insuranceCompanies || []
   );
@@ -441,7 +447,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
     }
   };
 
-  const onSubmit = (data: QuotationFormData) => {
+  const onSubmit = async (data: QuotationFormData) => {
     if (!validateGroups()) {
       toast.error("Please fix group structure errors");
       return;
@@ -451,33 +457,109 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
       return;
     }
 
-    if (mode === "edit" && initialData) {
-      const quotation = {
-        ...initialData,
-        ...data,
-        insuranceCompanies: selectedInsurers,
-        benefitGroups,
-        updatedAt: new Date(),
-        version: initialData.version + 1,
+    if (!profile?.id) {
+      toast.error("You must be logged in to create a quotation");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Generate quotation number
+      const year = new Date().getFullYear();
+      const randomNum = String(Date.now()).slice(-4);
+      const quotationNumber = `Q-${year}-${randomNum}`;
+
+      // Prepare insured groups data as JSON-compatible format
+      const allInsuredGroups: Json = Object.values(benefitGroups).flat().map(g => ({
+        id: g.id,
+        planName: g.planName,
+        members: {
+          male0to59: g.members.male0to59,
+          female0to59: g.members.female0to59,
+          child0to59: g.members.child0to59,
+          male60to64: g.members.male60to64,
+          female60to64: g.members.female60to64,
+        },
+      }));
+
+      // Prepare benefits as JSON-compatible format
+      const benefitsJson: Json = {
+        inPatient: data.inPatient,
+        outPatient: data.outPatient,
+        dental: data.dental,
+        maternity: data.maternity,
       };
-      console.log("Quotation updated:", quotation);
-      toast.success("Quotation updated successfully!");
-      navigate(`/quotation/${initialData.id}`);
-    } else {
-      const quotation = {
-        ...data,
-        insuranceCompanies: selectedInsurers,
-        benefitGroups,
-        id: `Q-${new Date().getFullYear()}-${String(Date.now()).slice(-3)}`,
-        status: "draft" as const,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        createdBy: "John Doe",
-        version: 1,
-      };
-      console.log("Quotation submitted:", quotation);
-      toast.success("Quotation created successfully!");
-      navigate("/");
+
+      if (mode === "edit" && initialData) {
+        // Update existing quotation
+        const { error } = await supabase
+          .from("quotations")
+          .update({
+            insured_name: data.insuredName,
+            insured_address: data.insuredAddress,
+            start_date: format(data.startDate, "yyyy-MM-dd"),
+            end_date: format(data.endDate, "yyyy-MM-dd"),
+            benefits_option: data.benefitsOption,
+            insurance_companies: selectedInsurers as string[],
+            benefits: benefitsJson,
+            insured_groups: allInsuredGroups,
+            version: (initialData.version || 1) + 1,
+          })
+          .eq("id", initialData.id);
+
+        if (error) throw error;
+
+        toast.success("Quotation updated successfully!");
+        navigate(`/quotation/${initialData.id}`);
+      } else {
+        // Create new quotation
+        const { data: newQuotation, error } = await supabase
+          .from("quotations")
+          .insert({
+            quotation_number: quotationNumber,
+            insured_name: data.insuredName,
+            insured_address: data.insuredAddress,
+            start_date: format(data.startDate, "yyyy-MM-dd"),
+            end_date: format(data.endDate, "yyyy-MM-dd"),
+            benefits_option: data.benefitsOption,
+            insurance_companies: selectedInsurers as string[],
+            benefits: benefitsJson,
+            insured_groups: allInsuredGroups,
+            status: "pending_pialang",
+            created_by: profile.id,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Create notification for Tenaga Pialang
+        await createNotification({
+          targetRole: "tenaga_pialang",
+          type: "pending_approval",
+          title: "New Quotation Pending Approval",
+          message: `Quotation ${quotationNumber} for ${data.insuredName} requires your review.`,
+          quotationId: newQuotation.id,
+        });
+
+        // Create notification for the creator (recent quotation)
+        await createNotification({
+          userId: profile.user_id,
+          type: "quotation_created",
+          title: "Quotation Created",
+          message: `Your quotation ${quotationNumber} for ${data.insuredName} has been submitted for approval.`,
+          quotationId: newQuotation.id,
+        });
+
+        toast.success("Quotation created and submitted for approval!");
+        navigate("/");
+      }
+    } catch (error: any) {
+      console.error("Error saving quotation:", error);
+      toast.error(error.message || "Failed to save quotation");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
