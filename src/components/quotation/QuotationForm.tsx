@@ -124,13 +124,22 @@ interface QuotationFormProps {
 
 export function QuotationForm({ mode = "create", initialData, onCancel }: QuotationFormProps) {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedInsurers, setSelectedInsurers] = useState<InsuranceCompany[]>(
     initialData?.insuranceCompanies || []
   );
   const [insurerError, setInsurerError] = useState<string>("");
+
+  // Show loading while auth is loading
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
   
   // Initialize benefit groups from initial data if in edit mode
   const getInitialBenefitGroups = (): Record<string, BenefitGroup[]> => {
