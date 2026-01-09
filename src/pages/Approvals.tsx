@@ -207,7 +207,7 @@ export default function Approvals() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Approval Queue</h1>
         <p className="text-muted-foreground">
-          Multi-layer approval: Sales → Tenaga Pialang → Tenaga Ahli → Approved
+          Multi-layer approval: Account Executive → Tenaga Pialang → Tenaga Ahli → Approved
         </p>
       </div>
 
