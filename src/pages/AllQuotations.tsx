@@ -77,17 +77,17 @@ export default function AllQuotations() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 md:space-y-6 animate-fade-in">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">All Quotations</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">All Quotations</h1>
+          <p className="text-sm text-muted-foreground">
             Manage and review all quotation requests
           </p>
         </div>
         <Link to="/quotation/new">
-          <Button>
+          <Button className="w-full sm:w-auto">
             <FilePlus className="w-4 h-4 mr-2" />
             New Quotation
           </Button>
@@ -95,8 +95,8 @@ export default function AllQuotations() {
       </div>
 
       {/* Filters */}
-      <div className="bg-card rounded-lg border p-4 shadow-card">
-        <div className="flex flex-col sm:flex-row gap-4">
+      <div className="bg-card rounded-lg border p-3 md:p-4 shadow-card">
+        <div className="flex flex-col gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
@@ -106,38 +106,131 @@ export default function AllQuotations() {
               className="pl-9"
             />
           </div>
-          <Select
-            value={statusFilter}
-            onValueChange={(value) => setStatusFilter(value as QuotationStatus | "all")}
-          >
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <Filter className="w-4 h-4 mr-2" />
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="pending_pialang">Pending Pialang</SelectItem>
-              <SelectItem value="pending_ahli">Pending Ahli</SelectItem>
-              <SelectItem value="approved">Approved</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
-              <SelectItem value="locked">Locked</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline">
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value as QuotationStatus | "all")}
+            >
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="pending_pialang">Pending Pialang</SelectItem>
+                <SelectItem value="pending_ahli">Pending Ahli</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+                <SelectItem value="locked">Locked</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" className="w-full sm:w-auto">
+              <Download className="w-4 h-4 mr-2" />
+              Export
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Results */}
-      <div className="bg-card rounded-lg border shadow-card overflow-hidden">
-        <div className="p-4 border-b bg-muted/30">
-          <p className="text-sm text-muted-foreground">
-            Showing {filteredQuotations.length} of {quotations?.length || 0} quotations
-          </p>
-        </div>
+      {/* Results Count */}
+      <div className="text-sm text-muted-foreground px-1">
+        Showing {filteredQuotations.length} of {quotations?.length || 0} quotations
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="block lg:hidden space-y-3">
+        {filteredQuotations.map((quotation) => (
+          <div key={quotation.id} className="bg-card rounded-lg border shadow-card p-4 space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <Link 
+                  to={`/quotation/${quotation.id}`}
+                  className="font-semibold text-primary hover:underline text-sm"
+                >
+                  {quotation.quotation_number}
+                </Link>
+                <p className="font-medium text-foreground truncate">{quotation.insured_name}</p>
+                <p className="text-xs text-muted-foreground truncate">{quotation.insured_address}</p>
+              </div>
+              <StatusBadge status={quotation.status} />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground">Policy Period</p>
+                <p className="text-xs">
+                  {format(new Date(quotation.start_date), "MMM d, yyyy")} - {format(new Date(quotation.end_date), "MMM d, yyyy")}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Members</p>
+                <p className="font-medium">{getTotalMembers(quotation.insured_groups as any[])}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Benefits</p>
+                <p>{getBenefitsSummary(quotation.benefits)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Insurance</p>
+                <div className="flex flex-wrap gap-1">
+                  {quotation.insurance_companies?.map((ins: string) => (
+                    <span 
+                      key={ins} 
+                      className="text-[10px] font-medium px-1.5 py-0.5 bg-secondary/50 text-secondary-foreground rounded"
+                    >
+                      {ins.toUpperCase()}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t">
+              <div className="text-xs text-muted-foreground">
+                By {quotation.creator?.full_name || "Unknown"}
+              </div>
+              <div className="flex items-center gap-2">
+                <ApprovalInfo 
+                  pialangApproval={quotation.pialangApproval}
+                  ahliApproval={quotation.ahliApproval}
+                  status={quotation.status}
+                  compact
+                />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <MoreHorizontal className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="bg-popover">
+                    <DropdownMenuItem asChild>
+                      <Link to={`/quotation/${quotation.id}`}>
+                        <Eye className="w-4 h-4 mr-2" />
+                        View Details
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      disabled={quotation.status === "locked" || quotation.status === "approved"}
+                      asChild={quotation.status !== "locked" && quotation.status !== "approved"}
+                    >
+                      {quotation.status !== "locked" && quotation.status !== "approved" ? (
+                        <Link to={`/quotation/edit/${quotation.id}`}>Edit</Link>
+                      ) : (
+                        <span>Edit</span>
+                      )}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>Download PDF</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden lg:block bg-card rounded-lg border shadow-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="data-table">
             <thead>
@@ -240,12 +333,13 @@ export default function AllQuotations() {
             </tbody>
           </table>
         </div>
-        {filteredQuotations.length === 0 && (
-          <div className="p-8 text-center text-muted-foreground">
-            <p>No quotations found matching your criteria.</p>
-          </div>
-        )}
       </div>
+
+      {filteredQuotations.length === 0 && (
+        <div className="bg-card rounded-lg border p-8 text-center text-muted-foreground">
+          <p>No quotations found matching your criteria.</p>
+        </div>
+      )}
     </div>
   );
 }
