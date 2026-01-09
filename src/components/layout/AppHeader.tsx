@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
-import premiroLogo from "@/assets/premiro-logo.jpg";
+import premiroLogo from "@/assets/premiro-logo.png";
 
 const ROLE_LABELS: Record<string, string> = {
   sales: "Account Executive",
