@@ -757,22 +757,19 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                 </p>
                 <div className="space-y-3">
                   {INSURANCE_COMPANY_OPTIONS.map((insurer) => (
-                    <div
+                    <label
                       key={insurer}
                       className={cn(
-                        "flex flex-row items-center space-x-3 rounded-lg border p-4 cursor-pointer transition-colors",
+                        "flex flex-row items-center space-x-3 rounded-lg border p-4 cursor-pointer transition-colors hover:bg-muted/50",
                         selectedInsurers.includes(insurer) && "border-primary bg-primary/5"
                       )}
-                      onClick={() => toggleInsurer(insurer)}
                     >
                       <Checkbox
                         checked={selectedInsurers.includes(insurer)}
                         onCheckedChange={() => toggleInsurer(insurer)}
                       />
-                      <div className="space-y-1 leading-none">
-                        <span className="font-medium">{INSURANCE_COMPANIES[insurer]}</span>
-                      </div>
-                    </div>
+                      <span className="font-medium">{INSURANCE_COMPANIES[insurer]}</span>
+                    </label>
                   ))}
                 </div>
                 {insurerError && (
