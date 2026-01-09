@@ -211,10 +211,10 @@ export default function AllQuotations() {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem 
-                      disabled={quotation.status === "locked" || quotation.status === "approved"}
-                      asChild={quotation.status !== "locked" && quotation.status !== "approved"}
+                      disabled={quotation.status !== "draft" && quotation.status !== "rejected"}
+                      asChild={quotation.status === "draft" || quotation.status === "rejected"}
                     >
-                      {quotation.status !== "locked" && quotation.status !== "approved" ? (
+                      {quotation.status === "draft" || quotation.status === "rejected" ? (
                         <Link to={`/quotation/edit/${quotation.id}`}>Edit</Link>
                       ) : (
                         <span>Edit</span>
@@ -312,10 +312,10 @@ export default function AllQuotations() {
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem 
-                          disabled={quotation.status === "locked" || quotation.status === "approved"}
-                          asChild={quotation.status !== "locked" && quotation.status !== "approved"}
+                          disabled={quotation.status !== "draft" && quotation.status !== "rejected"}
+                          asChild={quotation.status === "draft" || quotation.status === "rejected"}
                         >
-                          {quotation.status !== "locked" && quotation.status !== "approved" ? (
+                          {quotation.status === "draft" || quotation.status === "rejected" ? (
                             <Link to={`/quotation/edit/${quotation.id}`}>Edit</Link>
                           ) : (
                             <span>Edit</span>
