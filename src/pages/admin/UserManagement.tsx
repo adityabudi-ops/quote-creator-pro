@@ -37,7 +37,7 @@ type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type UserRole = Database["public"]["Enums"]["user_role"];
 
 const ROLE_LABELS: Record<UserRole, string> = {
-  sales: "Sales",
+  sales: "Account Executive",
   tenaga_pialang: "Tenaga Pialang",
   tenaga_ahli: "Tenaga Ahli",
   admin: "Admin",
