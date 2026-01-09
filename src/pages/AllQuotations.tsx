@@ -252,16 +252,27 @@ export default function AllQuotations() {
                           <MoreHorizontal className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Eye className="w-4 h-4 mr-2" />
-                          View Details
+                      <DropdownMenuContent align="end" className="bg-popover">
+                        <DropdownMenuItem asChild>
+                          <Link to={`/quotation/${quotation.id}`}>
+                            <Eye className="w-4 h-4 mr-2" />
+                            View Details
+                          </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem disabled={quotation.status === "locked"}>
-                          Edit
+                        <DropdownMenuItem 
+                          disabled={quotation.status === "locked" || quotation.status === "approved"}
+                          asChild={quotation.status !== "locked" && quotation.status !== "approved"}
+                        >
+                          {quotation.status !== "locked" && quotation.status !== "approved" ? (
+                            <Link to={`/quotation/edit/${quotation.id}`}>Edit</Link>
+                          ) : (
+                            <span>Edit</span>
+                          )}
                         </DropdownMenuItem>
                         <DropdownMenuItem>Download PDF</DropdownMenuItem>
-                        <DropdownMenuItem>View Audit Log</DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link to={`/audit-log?quotation=${quotation.id}`}>View Audit Log</Link>
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </td>
