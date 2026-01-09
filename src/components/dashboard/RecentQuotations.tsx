@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StatusBadge } from "@/components/quotation/StatusBadge";
+import { ApprovalInfo } from "@/components/quotation/ApprovalInfo";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useInsuranceCompanies } from "@/hooks/useInsuranceCompanies";
@@ -16,10 +17,11 @@ import { useInsuranceCompanies } from "@/hooks/useInsuranceCompanies";
 export function RecentQuotations() {
   const { data: insuranceCompanies } = useInsuranceCompanies();
   
-  const { data: quotations, isLoading } = useQuery({
-    queryKey: ["recent_quotations"],
+  const { data: quotationsData, isLoading } = useQuery({
+    queryKey: ["recent_quotations_with_approvals"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Fetch quotations
+      const { data: quotations, error } = await supabase
         .from("quotations")
         .select(`
           *,
@@ -27,8 +29,40 @@ export function RecentQuotations() {
         `)
         .order("created_at", { ascending: false })
         .limit(5);
+      
       if (error) throw error;
-      return data;
+      
+      // Fetch approval history for these quotations
+      const quotationIds = quotations.map(q => q.id);
+      const { data: approvals, error: approvalsError } = await supabase
+        .from("approval_history")
+        .select(`
+          *,
+          approver:profiles!approval_history_approved_by_fkey(full_name)
+        `)
+        .in("quotation_id", quotationIds);
+      
+      if (approvalsError) throw approvalsError;
+      
+      // Map approvals to quotations
+      return quotations.map(quotation => {
+        const quotationApprovals = approvals?.filter(
+          a => a.quotation_id === quotation.id
+        ) || [];
+        
+        const pialangApproval = quotationApprovals.find(
+          a => a.approval_role === "tenaga_pialang" && a.status === "approved"
+        );
+        const ahliApproval = quotationApprovals.find(
+          a => a.approval_role === "tenaga_ahli" && a.status === "approved"
+        );
+        
+        return {
+          ...quotation,
+          pialangApproval,
+          ahliApproval,
+        };
+      });
     },
   });
 
@@ -66,7 +100,7 @@ export function RecentQuotations() {
     );
   }
 
-  if (!quotations || quotations.length === 0) {
+  if (!quotationsData || quotationsData.length === 0) {
     return (
       <div className="bg-card rounded-lg border shadow-card p-6">
         <h2 className="text-lg font-semibold mb-4">Recent Quotations</h2>
@@ -97,12 +131,13 @@ export function RecentQuotations() {
               <th>Benefits</th>
               <th>Members</th>
               <th>Status</th>
+              <th>Approvals</th>
               <th>Created</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {quotations.map((quotation) => (
+            {quotationsData.map((quotation) => (
               <tr key={quotation.id}>
                 <td className="font-medium text-primary">{quotation.quotation_number}</td>
                 <td>
@@ -122,6 +157,14 @@ export function RecentQuotations() {
                 <td>{getTotalMembers(quotation.insured_groups as any[])}</td>
                 <td>
                   <StatusBadge status={quotation.status} />
+                </td>
+                <td>
+                  <ApprovalInfo
+                    pialangApproval={quotation.pialangApproval}
+                    ahliApproval={quotation.ahliApproval}
+                    status={quotation.status}
+                    compact
+                  />
                 </td>
                 <td className="text-muted-foreground">
                   {format(new Date(quotation.created_at), "MMM d, yyyy")}

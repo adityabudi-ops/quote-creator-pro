@@ -18,148 +18,38 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StatusBadge } from "@/components/quotation/StatusBadge";
-import type { QuotationData, QuotationStatus } from "@/types/quotation";
-import { INSURANCE_COMPANIES } from "@/types/quotation";
+import { ApprovalInfo } from "@/components/quotation/ApprovalInfo";
+import { useQuotationsWithApprovals } from "@/hooks/useApprovalHistory";
+import { useInsuranceCompanies } from "@/hooks/useInsuranceCompanies";
+import type { Database } from "@/integrations/supabase/types";
 
-// Default member breakdown helper
-const defaultMembers = {
-  male0to59: 0,
-  female0to59: 0,
-  child0to59: 0,
-  male60to64: 0,
-  female60to64: 0,
-};
-
-// Extended sample data
-const allQuotations: QuotationData[] = [
-  {
-    id: "Q-2024-001",
-    insuredName: "PT Maju Bersama",
-    insuredAddress: "Jl. Sudirman No. 123, Jakarta",
-    startDate: new Date("2024-02-01"),
-    endDate: new Date("2025-02-01"),
-    benefitsOption: "inner_limit_all",
-    insuranceCompanies: ["aca", "asm"],
-    benefits: { inPatient: true, outPatient: true, dental: false, maternity: false },
-    insuredGroups: [{ id: "1", planName: "IP 500", members: { ...defaultMembers, male0to59: 5, female0to59: 5 } }],
-    status: "approved",
-    createdAt: new Date("2024-01-15"),
-    updatedAt: new Date("2024-01-20"),
-    createdBy: "John Doe",
-    version: 1,
-  },
-  {
-    id: "Q-2024-002",
-    insuredName: "CV Sentosa Abadi",
-    insuredAddress: "Jl. Gatot Subroto No. 45, Bandung",
-    startDate: new Date("2024-03-01"),
-    endDate: new Date("2025-03-01"),
-    benefitsOption: "inner_limit_ip_ma_as_charge_op_de",
-    insuranceCompanies: ["sompo"],
-    benefits: { inPatient: true, outPatient: true, dental: true, maternity: true },
-    insuredGroups: [
-      { id: "1", planName: "IP 700", members: { ...defaultMembers, male0to59: 3, female0to59: 2 } },
-      { id: "2", planName: "IP 500", members: { ...defaultMembers, male0to59: 10, female0to59: 10, child0to59: 5 } },
-    ],
-    status: "review",
-    createdAt: new Date("2024-01-18"),
-    updatedAt: new Date("2024-01-18"),
-    createdBy: "Jane Smith",
-    version: 1,
-  },
-  {
-    id: "Q-2024-003",
-    insuredName: "PT Teknologi Nusantara",
-    insuredAddress: "Jl. HR Rasuna Said Kav. 5, Jakarta",
-    startDate: new Date("2024-04-01"),
-    endDate: new Date("2025-04-01"),
-    benefitsOption: "semi_as_charge_ip_inner_limit_ma_as_charge_op_de",
-    insuranceCompanies: ["aca"],
-    benefits: { inPatient: true, outPatient: false, dental: false, maternity: false },
-    insuredGroups: [{ id: "1", planName: "IP 1000", members: { ...defaultMembers, male0to59: 25, female0to59: 20, child0to59: 5 } }],
-    status: "draft",
-    createdAt: new Date("2024-01-20"),
-    updatedAt: new Date("2024-01-20"),
-    createdBy: "John Doe",
-    version: 1,
-  },
-  {
-    id: "Q-2024-004",
-    insuredName: "PT Global Prima",
-    insuredAddress: "Jl. Thamrin No. 88, Jakarta",
-    startDate: new Date("2024-01-15"),
-    endDate: new Date("2025-01-15"),
-    benefitsOption: "as_charge_ip_op_de_inner_limit_ma",
-    insuranceCompanies: ["asm", "sompo"],
-    benefits: { inPatient: true, outPatient: true, dental: true, maternity: false },
-    insuredGroups: [
-      { id: "1", planName: "IP 2000", members: { ...defaultMembers, male0to59: 2, female0to59: 1 } },
-      { id: "2", planName: "IP 1000", members: { ...defaultMembers, male0to59: 6, female0to59: 6 } },
-      { id: "3", planName: "IP 500", members: { ...defaultMembers, male0to59: 40, female0to59: 35, child0to59: 10 } },
-    ],
-    status: "locked",
-    createdAt: new Date("2024-01-05"),
-    updatedAt: new Date("2024-01-10"),
-    createdBy: "Jane Smith",
-    version: 2,
-  },
-  {
-    id: "Q-2024-005",
-    insuredName: "PT Karya Mandiri",
-    insuredAddress: "Jl. Asia Afrika No. 12, Bandung",
-    startDate: new Date("2024-05-01"),
-    endDate: new Date("2025-05-01"),
-    benefitsOption: "inner_limit_all",
-    insuranceCompanies: ["aca", "sompo"],
-    benefits: { inPatient: true, outPatient: true, dental: false, maternity: true },
-    insuredGroups: [
-      { id: "1", planName: "IP 1250", members: { ...defaultMembers, male0to59: 4, female0to59: 4 } },
-      { id: "2", planName: "IP 600", members: { ...defaultMembers, male0to59: 20, female0to59: 18, child0to59: 4 } },
-    ],
-    status: "draft",
-    createdAt: new Date("2024-01-22"),
-    updatedAt: new Date("2024-01-22"),
-    createdBy: "John Doe",
-    version: 1,
-  },
-  {
-    id: "Q-2024-006",
-    insuredName: "CV Sukses Jaya",
-    insuredAddress: "Jl. Pemuda No. 56, Surabaya",
-    startDate: new Date("2024-06-01"),
-    endDate: new Date("2025-06-01"),
-    benefitsOption: "inner_limit_ip_ma_as_charge_op_de",
-    insuranceCompanies: ["asm"],
-    benefits: { inPatient: true, outPatient: false, dental: false, maternity: false },
-    insuredGroups: [{ id: "1", planName: "IP 400", members: { ...defaultMembers, male0to59: 8, female0to59: 7 } }],
-    status: "review",
-    createdAt: new Date("2024-01-23"),
-    updatedAt: new Date("2024-01-23"),
-    createdBy: "Jane Smith",
-    version: 1,
-  },
-];
+type QuotationStatus = Database["public"]["Enums"]["quotation_status"];
 
 export default function AllQuotations() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<QuotationStatus | "all">("all");
+  
+  const { data: quotations, isLoading } = useQuotationsWithApprovals();
+  const { data: insuranceCompanies } = useInsuranceCompanies();
 
-  const filteredQuotations = allQuotations.filter((q) => {
+  const filteredQuotations = quotations?.filter((q) => {
     const matchesSearch =
-      q.insuredName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      q.id.toLowerCase().includes(searchQuery.toLowerCase());
+      q.insured_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      q.quotation_number.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || q.status === statusFilter;
     return matchesSearch && matchesStatus;
-  });
+  }) || [];
 
-  const getTotalMembers = (groups: QuotationData["insuredGroups"]) => {
-    return groups.reduce((sum, g) => {
-      const m = g.members;
-      return sum + m.male0to59 + m.female0to59 + m.child0to59 + m.male60to64 + m.female60to64;
+  const getTotalMembers = (groups: any[]) => {
+    if (!groups) return 0;
+    return groups.reduce((sum: number, g: any) => {
+      const m = g.members || {};
+      return sum + (m.male0to59 || 0) + (m.female0to59 || 0) + (m.child0to59 || 0) + (m.male60to64 || 0) + (m.female60to64 || 0);
     }, 0);
   };
 
-  const getBenefitsSummary = (benefits: QuotationData["benefits"]) => {
+  const getBenefitsSummary = (benefits: any) => {
+    if (!benefits) return "";
     const active = [];
     if (benefits.inPatient) active.push("IP");
     if (benefits.outPatient) active.push("OP");
@@ -167,6 +57,24 @@ export default function AllQuotations() {
     if (benefits.maternity) active.push("M");
     return active.join(", ");
   };
+
+  const getInsuranceNames = (codes: string[]) => {
+    if (!codes) return "";
+    return codes.map(code => code.toUpperCase()).join(", ");
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">All Quotations</h1>
+            <p className="text-muted-foreground">Loading quotations...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -209,8 +117,10 @@ export default function AllQuotations() {
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="review">In Review</SelectItem>
+              <SelectItem value="pending_pialang">Pending Pialang</SelectItem>
+              <SelectItem value="pending_ahli">Pending Ahli</SelectItem>
               <SelectItem value="approved">Approved</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
               <SelectItem value="locked">Locked</SelectItem>
             </SelectContent>
           </Select>
@@ -225,7 +135,7 @@ export default function AllQuotations() {
       <div className="bg-card rounded-lg border shadow-card overflow-hidden">
         <div className="p-4 border-b bg-muted/30">
           <p className="text-sm text-muted-foreground">
-            Showing {filteredQuotations.length} of {allQuotations.length} quotations
+            Showing {filteredQuotations.length} of {quotations?.length || 0} quotations
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -239,6 +149,7 @@ export default function AllQuotations() {
                 <th>Insurance</th>
                 <th>Members</th>
                 <th>Status</th>
+                <th>Approvals</th>
                 <th>Created By</th>
                 <th></th>
               </tr>
@@ -246,20 +157,20 @@ export default function AllQuotations() {
             <tbody>
               {filteredQuotations.map((quotation) => (
                 <tr key={quotation.id}>
-                  <td className="font-medium text-primary">{quotation.id}</td>
+                  <td className="font-medium text-primary">{quotation.quotation_number}</td>
                   <td>
                     <div>
-                      <p className="font-medium">{quotation.insuredName}</p>
+                      <p className="font-medium">{quotation.insured_name}</p>
                       <p className="text-xs text-muted-foreground truncate max-w-[180px]">
-                        {quotation.insuredAddress}
+                        {quotation.insured_address}
                       </p>
                     </div>
                   </td>
                   <td className="text-sm">
                     <div>
-                      <p>{format(quotation.startDate, "MMM d, yyyy")}</p>
+                      <p>{format(new Date(quotation.start_date), "MMM d, yyyy")}</p>
                       <p className="text-muted-foreground">
-                        to {format(quotation.endDate, "MMM d, yyyy")}
+                        to {format(new Date(quotation.end_date), "MMM d, yyyy")}
                       </p>
                     </div>
                   </td>
@@ -268,7 +179,7 @@ export default function AllQuotations() {
                   </td>
                   <td>
                     <div className="flex flex-wrap gap-1 max-w-[150px]">
-                      {quotation.insuranceCompanies.map((ins) => (
+                      {quotation.insurance_companies?.map((ins: string) => (
                         <span 
                           key={ins} 
                           className="text-[10px] font-medium px-1.5 py-0.5 bg-secondary/50 text-secondary-foreground rounded"
@@ -278,11 +189,21 @@ export default function AllQuotations() {
                       ))}
                     </div>
                   </td>
-                  <td>{getTotalMembers(quotation.insuredGroups)}</td>
+                  <td>{getTotalMembers(quotation.insured_groups as any[])}</td>
                   <td>
                     <StatusBadge status={quotation.status} />
                   </td>
-                  <td className="text-sm text-muted-foreground">{quotation.createdBy}</td>
+                  <td>
+                    <ApprovalInfo 
+                      pialangApproval={quotation.pialangApproval}
+                      ahliApproval={quotation.ahliApproval}
+                      status={quotation.status}
+                      compact
+                    />
+                  </td>
+                  <td className="text-sm text-muted-foreground">
+                    {quotation.creator?.full_name || "Unknown"}
+                  </td>
                   <td>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

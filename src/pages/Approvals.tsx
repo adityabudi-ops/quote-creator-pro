@@ -20,6 +20,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { StatusBadge } from "@/components/quotation/StatusBadge";
+import { ApprovalInfo } from "@/components/quotation/ApprovalInfo";
 import type { Database } from "@/integrations/supabase/types";
 
 type QuotationStatus = Database["public"]["Enums"]["quotation_status"];
@@ -63,7 +64,38 @@ export default function Approvals() {
       
       const { data, error } = await query;
       if (error) throw error;
-      return data;
+      
+      // Fetch approval history for these quotations
+      const quotationIds = data.map(q => q.id);
+      const { data: approvals, error: approvalsError } = await supabase
+        .from("approval_history")
+        .select(`
+          *,
+          approver:profiles!approval_history_approved_by_fkey(full_name)
+        `)
+        .in("quotation_id", quotationIds);
+      
+      if (approvalsError) throw approvalsError;
+      
+      // Map approvals to quotations
+      return data.map(quotation => {
+        const quotationApprovals = approvals?.filter(
+          a => a.quotation_id === quotation.id
+        ) || [];
+        
+        const pialangApproval = quotationApprovals.find(
+          a => a.approval_role === "tenaga_pialang" && a.status === "approved"
+        );
+        const ahliApproval = quotationApprovals.find(
+          a => a.approval_role === "tenaga_ahli" && a.status === "approved"
+        );
+        
+        return {
+          ...quotation,
+          pialangApproval,
+          ahliApproval,
+        };
+      });
     },
   });
 
@@ -289,7 +321,7 @@ export default function Approvals() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-4">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 mb-4">
                   <div className="flex items-center gap-2 text-sm">
                     <User className="w-4 h-4 text-muted-foreground" />
                     <span className="text-muted-foreground">Created by:</span>
@@ -307,6 +339,15 @@ export default function Approvals() {
                   <div className="text-sm">
                     <span className="text-muted-foreground">Benefits:</span>{" "}
                     <span>{getBenefitsSummary(quotation.benefits) || "N/A"}</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="text-muted-foreground mr-2">Approvals:</span>
+                    <ApprovalInfo
+                      pialangApproval={quotation.pialangApproval}
+                      ahliApproval={quotation.ahliApproval}
+                      status={quotation.status}
+                      compact
+                    />
                   </div>
                 </div>
                 <div className="flex gap-2 justify-end">
