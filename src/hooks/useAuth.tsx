@@ -46,16 +46,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     // Then get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        supabase
+        const { data } = await supabase
           .from("profiles")
           .select("*")
           .eq("user_id", session.user.id)
-          .maybeSingle()
-          .then(({ data }) => setProfile(data));
+          .maybeSingle();
+        setProfile(data);
       }
       setLoading(false);
     });
