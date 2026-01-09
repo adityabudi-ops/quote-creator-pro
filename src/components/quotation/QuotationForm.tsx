@@ -460,39 +460,77 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
 
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
-      {/* Progress Steps */}
+      {/* Progress Steps - Redesigned for 6 steps */}
       <div className="mb-8">
-        <div className="flex items-center justify-between">
-          {steps.map((step, index) => (
-            <div key={step.id} className="flex items-center">
-              <div
-                className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-colors",
-                  currentStep >= step.id
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground"
+        {/* Desktop view */}
+        <div className="hidden lg:block">
+          <div className="flex items-center justify-between">
+            {steps.map((step, index) => (
+              <div key={step.id} className="flex items-center flex-1 last:flex-none">
+                <div className="flex flex-col items-center">
+                  <div
+                    className={cn(
+                      "w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all shadow-sm",
+                      currentStep >= step.id
+                        ? "bg-primary text-primary-foreground shadow-primary/30"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {step.id}
+                  </div>
+                  <span
+                    className={cn(
+                      "mt-2 text-xs font-medium text-center whitespace-nowrap",
+                      currentStep >= step.id ? "text-foreground" : "text-muted-foreground"
+                    )}
+                  >
+                    {step.title}
+                  </span>
+                </div>
+                {index < steps.length - 1 && (
+                  <div
+                    className={cn(
+                      "flex-1 h-0.5 mx-2 mt-[-1.5rem]",
+                      currentStep > step.id ? "bg-primary" : "bg-muted"
+                    )}
+                  />
                 )}
-              >
-                {step.id}
               </div>
-              <span
-                className={cn(
-                  "ml-2 text-sm font-medium hidden sm:block",
-                  currentStep >= step.id ? "text-foreground" : "text-muted-foreground"
-                )}
-              >
-                {step.title}
-              </span>
-              {index < steps.length - 1 && (
+            ))}
+          </div>
+        </div>
+        
+        {/* Tablet/Mobile view - compact stepper */}
+        <div className="lg:hidden">
+          <div className="flex items-center justify-center gap-2 mb-3">
+            {steps.map((step, index) => (
+              <div key={step.id} className="flex items-center">
                 <div
                   className={cn(
-                    "w-12 h-0.5 mx-4",
-                    currentStep > step.id ? "bg-primary" : "bg-muted"
+                    "w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all",
+                    currentStep === step.id
+                      ? "bg-primary text-primary-foreground shadow-md"
+                      : currentStep > step.id
+                        ? "bg-primary/80 text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
                   )}
-                />
-              )}
-            </div>
-          ))}
+                >
+                  {step.id}
+                </div>
+                {index < steps.length - 1 && (
+                  <div
+                    className={cn(
+                      "w-4 h-0.5 mx-1",
+                      currentStep > step.id ? "bg-primary" : "bg-muted"
+                    )}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="text-center text-sm font-medium text-foreground">
+            Step {currentStep}: <span className="text-primary">{steps[currentStep - 1]?.title}</span>
+          </p>
         </div>
       </div>
 
