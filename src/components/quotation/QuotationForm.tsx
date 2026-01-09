@@ -321,9 +321,23 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
     return (benefitGroups.maternity || []).reduce((sum, g) => sum + g.members.female0to59, 0);
   };
 
+  const AGE_GROUP_LABELS: Record<keyof MemberBreakdown, string> = {
+    male0to59: "Male (0-59)",
+    female0to59: "Female (0-59)",
+    child0to59: "Child (0-59)",
+    male60to64: "Male (60-64)",
+    female60to64: "Female (60-64)",
+  };
+
   const validateGroups = (): boolean => {
     const errors: string[] = [];
-    const inPatientTotal = getTotalMembers("inPatient");
+    const inPatientTotals = {
+      male0to59: (benefitGroups.inPatient || []).reduce((sum, g) => sum + g.members.male0to59, 0),
+      female0to59: (benefitGroups.inPatient || []).reduce((sum, g) => sum + g.members.female0to59, 0),
+      child0to59: (benefitGroups.inPatient || []).reduce((sum, g) => sum + g.members.child0to59, 0),
+      male60to64: (benefitGroups.inPatient || []).reduce((sum, g) => sum + g.members.male60to64, 0),
+      female60to64: (benefitGroups.inPatient || []).reduce((sum, g) => sum + g.members.female60to64, 0),
+    };
 
     Object.entries(benefitGroups).forEach(([benefitType, groups]) => {
       const planNames = new Set<string>();
@@ -353,12 +367,21 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
         errors.push(`${BENEFIT_LABELS[benefitType]} plans must be in ascending order`);
       }
 
-      // Validate total members match In-Patient for other benefits
+      // Validate each age group total matches In-Patient for other benefits
       if (benefitType !== 'inPatient') {
-        const benefitTotal = getTotalMembers(benefitType);
-        if (benefitTotal !== inPatientTotal) {
-          errors.push(`${BENEFIT_LABELS[benefitType]} total members (${benefitTotal}) must match In-Patient total (${inPatientTotal})`);
-        }
+        const benefitTotals = {
+          male0to59: groups.reduce((sum, g) => sum + g.members.male0to59, 0),
+          female0to59: groups.reduce((sum, g) => sum + g.members.female0to59, 0),
+          child0to59: groups.reduce((sum, g) => sum + g.members.child0to59, 0),
+          male60to64: groups.reduce((sum, g) => sum + g.members.male60to64, 0),
+          female60to64: groups.reduce((sum, g) => sum + g.members.female60to64, 0),
+        };
+
+        (Object.keys(inPatientTotals) as (keyof typeof inPatientTotals)[]).forEach((ageGroup) => {
+          if (benefitTotals[ageGroup] !== inPatientTotals[ageGroup]) {
+            errors.push(`${BENEFIT_LABELS[benefitType]} ${AGE_GROUP_LABELS[ageGroup]} (${benefitTotals[ageGroup]}) must match In-Patient (${inPatientTotals[ageGroup]})`);
+          }
+        });
       }
     });
 
@@ -465,6 +488,18 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
 
   const getTotalMembers = (benefitType: string) => {
     return (benefitGroups[benefitType] || []).reduce((sum, g) => sum + getGroupTotal(g), 0);
+  };
+
+  // Get totals per age group for a benefit type
+  const getAgeGroupTotals = (benefitType: string) => {
+    const groups = benefitGroups[benefitType] || [];
+    return {
+      male0to59: groups.reduce((sum, g) => sum + g.members.male0to59, 0),
+      female0to59: groups.reduce((sum, g) => sum + g.members.female0to59, 0),
+      child0to59: groups.reduce((sum, g) => sum + g.members.child0to59, 0),
+      male60to64: groups.reduce((sum, g) => sum + g.members.male60to64, 0),
+      female60to64: groups.reduce((sum, g) => sum + g.members.female60to64, 0),
+    };
   };
 
   const selectedBenefits = Object.keys(benefitGroups);
@@ -981,9 +1016,13 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                         ))}
                       </tbody>
                       <tfoot>
-                        <tr>
+                        <tr className="text-xs">
                           <td className="font-medium">Total</td>
-                          <td colSpan={5}></td>
+                          <td className="text-center">{getAgeGroupTotals("inPatient").male0to59}</td>
+                          <td className="text-center">{getAgeGroupTotals("inPatient").female0to59}</td>
+                          <td className="text-center">{getAgeGroupTotals("inPatient").child0to59}</td>
+                          <td className="text-center">{getAgeGroupTotals("inPatient").male60to64}</td>
+                          <td className="text-center">{getAgeGroupTotals("inPatient").female60to64}</td>
                           <td className="text-center font-medium">{getTotalMembers("inPatient")}</td>
                           <td></td>
                         </tr>
@@ -993,19 +1032,26 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                 </CardContent>
               </Card>
 
-              {/* Other Benefits - Editable members with total validation */}
+              {/* Other Benefits - Editable members with per-column total validation */}
               {selectedBenefits.filter(b => b !== 'inPatient').map((benefitType) => {
+                const benefitTotals = getAgeGroupTotals(benefitType);
+                const ipTotals = getAgeGroupTotals("inPatient");
                 const benefitTotal = getTotalMembers(benefitType);
                 const inPatientTotal = getTotalMembers("inPatient");
-                const isTotalMismatch = benefitTotal !== inPatientTotal;
+                
+                const hasMismatch = (field: keyof MemberBreakdown) => benefitTotals[field] !== ipTotals[field];
+                const anyMismatch = Object.keys(benefitTotals).some(k => hasMismatch(k as keyof MemberBreakdown));
                 
                 return (
                   <Card key={benefitType} className="form-section">
                     <CardHeader className="flex flex-row items-center justify-between">
                       <CardTitle className="form-section-title mb-0 border-b-0 pb-0">
                         {BENEFIT_LABELS[benefitType]} Plans
-                        <span className="text-xs font-normal text-muted-foreground ml-2">
-                          (Total must match In-Patient: {inPatientTotal})
+                        <span className={cn(
+                          "text-xs font-normal ml-2",
+                          anyMismatch ? "text-destructive" : "text-muted-foreground"
+                        )}>
+                          {anyMismatch ? "(Totals must match In-Patient per column)" : "(Totals match In-Patient ✓)"}
                         </span>
                       </CardTitle>
                     </CardHeader>
@@ -1051,7 +1097,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                                   <Input
                                     type="number"
                                     min="0"
-                                    className="w-16 text-center"
+                                    className={cn("w-16 text-center", hasMismatch("male0to59") && "border-destructive")}
                                     value={group.members.male0to59 || ""}
                                     onChange={(e) => updateGroup(benefitType, group.id, "male0to59", parseInt(e.target.value) || 0)}
                                     placeholder="0"
@@ -1061,7 +1107,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                                   <Input
                                     type="number"
                                     min="0"
-                                    className="w-16 text-center"
+                                    className={cn("w-16 text-center", hasMismatch("female0to59") && "border-destructive")}
                                     value={group.members.female0to59 || ""}
                                     onChange={(e) => updateGroup(benefitType, group.id, "female0to59", parseInt(e.target.value) || 0)}
                                     placeholder="0"
@@ -1071,7 +1117,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                                   <Input
                                     type="number"
                                     min="0"
-                                    className="w-16 text-center"
+                                    className={cn("w-16 text-center", hasMismatch("child0to59") && "border-destructive")}
                                     value={group.members.child0to59 || ""}
                                     onChange={(e) => updateGroup(benefitType, group.id, "child0to59", parseInt(e.target.value) || 0)}
                                     placeholder="0"
@@ -1081,7 +1127,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                                   <Input
                                     type="number"
                                     min="0"
-                                    className="w-16 text-center"
+                                    className={cn("w-16 text-center", hasMismatch("male60to64") && "border-destructive")}
                                     value={group.members.male60to64 || ""}
                                     onChange={(e) => updateGroup(benefitType, group.id, "male60to64", parseInt(e.target.value) || 0)}
                                     placeholder="0"
@@ -1091,7 +1137,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                                   <Input
                                     type="number"
                                     min="0"
-                                    className="w-16 text-center"
+                                    className={cn("w-16 text-center", hasMismatch("female60to64") && "border-destructive")}
                                     value={group.members.female60to64 || ""}
                                     onChange={(e) => updateGroup(benefitType, group.id, "female60to64", parseInt(e.target.value) || 0)}
                                     placeholder="0"
@@ -1102,17 +1148,33 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                             ))}
                           </tbody>
                           <tfoot>
-                            <tr>
+                            <tr className="text-xs">
                               <td className="font-medium">Total</td>
-                              <td colSpan={5}></td>
+                              <td className={cn("text-center", hasMismatch("male0to59") && "text-destructive font-medium")}>
+                                {benefitTotals.male0to59}
+                                {hasMismatch("male0to59") && <span className="block">≠{ipTotals.male0to59}</span>}
+                              </td>
+                              <td className={cn("text-center", hasMismatch("female0to59") && "text-destructive font-medium")}>
+                                {benefitTotals.female0to59}
+                                {hasMismatch("female0to59") && <span className="block">≠{ipTotals.female0to59}</span>}
+                              </td>
+                              <td className={cn("text-center", hasMismatch("child0to59") && "text-destructive font-medium")}>
+                                {benefitTotals.child0to59}
+                                {hasMismatch("child0to59") && <span className="block">≠{ipTotals.child0to59}</span>}
+                              </td>
+                              <td className={cn("text-center", hasMismatch("male60to64") && "text-destructive font-medium")}>
+                                {benefitTotals.male60to64}
+                                {hasMismatch("male60to64") && <span className="block">≠{ipTotals.male60to64}</span>}
+                              </td>
+                              <td className={cn("text-center", hasMismatch("female60to64") && "text-destructive font-medium")}>
+                                {benefitTotals.female60to64}
+                                {hasMismatch("female60to64") && <span className="block">≠{ipTotals.female60to64}</span>}
+                              </td>
                               <td className={cn(
                                 "text-center font-medium",
-                                isTotalMismatch && "text-destructive"
+                                benefitTotal !== inPatientTotal && "text-destructive"
                               )}>
                                 {benefitTotal}
-                                {isTotalMismatch && (
-                                  <span className="text-xs block">≠ {inPatientTotal}</span>
-                                )}
                               </td>
                             </tr>
                           </tfoot>
