@@ -2,6 +2,14 @@ export type QuotationStatus = 'draft' | 'review' | 'approved' | 'locked';
 
 export type BenefitType = 'inPatient' | 'outPatient' | 'dental' | 'maternity';
 
+export type InsuranceCompany = 'aca' | 'asm' | 'sompo';
+
+export const INSURANCE_COMPANIES: Record<InsuranceCompany, string> = {
+  'aca': 'PT Asuransi Central Asia (ACA)',
+  'asm': 'PT Asuransi Sinarmas (ASM)',
+  'sompo': 'PT Sompo Insurance Indonesia',
+};
+
 export interface MemberBreakdown {
   male0to59: number;
   female0to59: number;
@@ -41,6 +49,9 @@ export interface QuotationData {
 
   // Benefits Option
   benefitsOption: BenefitsOption;
+  
+  // Insurance Companies
+  insuranceCompanies: InsuranceCompany[];
   
   // Benefits
   benefits: {

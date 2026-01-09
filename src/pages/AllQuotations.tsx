@@ -38,6 +38,7 @@ const allQuotations: QuotationData[] = [
     startDate: new Date("2024-02-01"),
     endDate: new Date("2025-02-01"),
     benefitsOption: "inner_limit_all",
+    insuranceCompanies: ["aca", "asm"],
     benefits: { inPatient: true, outPatient: true, dental: false, maternity: false },
     insuredGroups: [{ id: "1", planName: "IP 500", members: { ...defaultMembers, male0to59: 5, female0to59: 5 } }],
     status: "approved",
@@ -53,6 +54,7 @@ const allQuotations: QuotationData[] = [
     startDate: new Date("2024-03-01"),
     endDate: new Date("2025-03-01"),
     benefitsOption: "inner_limit_ip_ma_as_charge_op_de",
+    insuranceCompanies: ["sompo"],
     benefits: { inPatient: true, outPatient: true, dental: true, maternity: true },
     insuredGroups: [
       { id: "1", planName: "IP 700", members: { ...defaultMembers, male0to59: 3, female0to59: 2 } },
@@ -71,6 +73,7 @@ const allQuotations: QuotationData[] = [
     startDate: new Date("2024-04-01"),
     endDate: new Date("2025-04-01"),
     benefitsOption: "semi_as_charge_ip_inner_limit_ma_as_charge_op_de",
+    insuranceCompanies: ["aca"],
     benefits: { inPatient: true, outPatient: false, dental: false, maternity: false },
     insuredGroups: [{ id: "1", planName: "IP 1000", members: { ...defaultMembers, male0to59: 25, female0to59: 20, child0to59: 5 } }],
     status: "draft",
@@ -86,6 +89,7 @@ const allQuotations: QuotationData[] = [
     startDate: new Date("2024-01-15"),
     endDate: new Date("2025-01-15"),
     benefitsOption: "as_charge_ip_op_de_inner_limit_ma",
+    insuranceCompanies: ["asm", "sompo"],
     benefits: { inPatient: true, outPatient: true, dental: true, maternity: false },
     insuredGroups: [
       { id: "1", planName: "IP 2000", members: { ...defaultMembers, male0to59: 2, female0to59: 1 } },
@@ -105,6 +109,7 @@ const allQuotations: QuotationData[] = [
     startDate: new Date("2024-05-01"),
     endDate: new Date("2025-05-01"),
     benefitsOption: "inner_limit_all",
+    insuranceCompanies: ["aca", "sompo"],
     benefits: { inPatient: true, outPatient: true, dental: false, maternity: true },
     insuredGroups: [
       { id: "1", planName: "IP 1250", members: { ...defaultMembers, male0to59: 4, female0to59: 4 } },
@@ -123,6 +128,7 @@ const allQuotations: QuotationData[] = [
     startDate: new Date("2024-06-01"),
     endDate: new Date("2025-06-01"),
     benefitsOption: "inner_limit_ip_ma_as_charge_op_de",
+    insuranceCompanies: ["asm"],
     benefits: { inPatient: true, outPatient: false, dental: false, maternity: false },
     insuredGroups: [{ id: "1", planName: "IP 400", members: { ...defaultMembers, male0to59: 8, female0to59: 7 } }],
     status: "review",

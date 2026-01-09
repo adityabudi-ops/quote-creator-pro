@@ -16,10 +16,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import type { QuotationData, BenefitsOption } from "@/types/quotation";
-import { BENEFITS_OPTIONS_LABELS } from "@/types/quotation";
+import type { QuotationData, BenefitsOption, InsuranceCompany } from "@/types/quotation";
+import { BENEFITS_OPTIONS_LABELS, INSURANCE_COMPANIES } from "@/types/quotation";
 
-// Plan options per benefit type
+// Plan options per benefit type (sorted ascending)
 const PLAN_OPTIONS = {
   inPatient: [
     "IP 300", "IP 400", "IP 500", "IP 600", "IP 700", "IP 800",
@@ -69,6 +69,8 @@ const BENEFITS_OPTIONS: BenefitsOption[] = [
   'as_charge_ip_op_de_inner_limit_ma',
 ];
 
+const INSURANCE_COMPANY_OPTIONS: InsuranceCompany[] = ['aca', 'asm', 'sompo'];
+
 const quotationSchema = z.object({
   insuredName: z.string().min(1, "Insured name is required").max(200, "Name too long"),
   insuredAddress: z.string().min(1, "Address is required").max(500, "Address too long"),
@@ -98,8 +100,9 @@ const steps = [
   { id: 1, title: "Insured Information" },
   { id: 2, title: "Policy Period" },
   { id: 3, title: "Benefits" },
-  { id: 4, title: "Group Structure" },
-  { id: 5, title: "Review" },
+  { id: 4, title: "Insurance Companies" },
+  { id: 5, title: "Group Structure" },
+  { id: 6, title: "Review" },
 ];
 
 const BENEFIT_LABELS: Record<string, string> = {
@@ -118,6 +121,10 @@ interface QuotationFormProps {
 export function QuotationForm({ mode = "create", initialData, onCancel }: QuotationFormProps) {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
+  const [selectedInsurers, setSelectedInsurers] = useState<InsuranceCompany[]>(
+    initialData?.insuranceCompanies || []
+  );
+  const [insurerError, setInsurerError] = useState<string>("");
   
   // Initialize benefit groups from initial data if in edit mode
   const getInitialBenefitGroups = (): Record<string, BenefitGroup[]> => {
@@ -292,32 +299,86 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
     }));
   };
 
+  // Helper to get plan number for sorting
+  const getPlanNumber = (planName: string): number => {
+    const match = planName.match(/\d+/);
+    return match ? parseInt(match[0], 10) : 0;
+  };
+
+  // Helper to check if plans are in ascending order
+  const arePlansAscending = (groups: BenefitGroup[]): boolean => {
+    const planNumbers = groups.map(g => getPlanNumber(g.planName));
+    for (let i = 1; i < planNumbers.length; i++) {
+      if (planNumbers[i] <= planNumbers[i - 1]) return false;
+    }
+    return true;
+  };
+
+  // Get total female members for maternity (age 0-59 only)
+  const getMaternityEligibleFemales = (): number => {
+    return (benefitGroups.maternity || []).reduce((sum, g) => sum + g.members.female0to59, 0);
+  };
+
   const validateGroups = (): boolean => {
     const errors: string[] = [];
-    const allPlanNames = new Set<string>();
 
     Object.entries(benefitGroups).forEach(([benefitType, groups]) => {
+      const planNames = new Set<string>();
+
       groups.forEach((group, index) => {
+        // Check plan name is selected
         if (!group.planName) {
           errors.push(`Plan is required for ${BENEFIT_LABELS[benefitType]} row ${index + 1}`);
         } else {
-          const planKey = `${benefitType}-${group.planName}`;
-          if (allPlanNames.has(planKey)) {
+          // Check for duplicate plan names within the same benefit type
+          if (planNames.has(group.planName)) {
             errors.push(`Duplicate plan in ${BENEFIT_LABELS[benefitType]}: ${group.planName}`);
           } else {
-            allPlanNames.add(planKey);
+            planNames.add(group.planName);
           }
         }
 
+        // Check every row has at least 1 member (no zeros)
         const totalMembers = getGroupTotal(group);
-        if (totalMembers <= 0) {
-          errors.push(`At least one member is required for ${BENEFIT_LABELS[benefitType]} ${group.planName || `row ${index + 1}`}`);
+        if (totalMembers === 0) {
+          errors.push(`Every row must have at least 1 member - ${BENEFIT_LABELS[benefitType]} ${group.planName || `row ${index + 1}`}`);
         }
       });
+
+      // Check ascending order
+      if (groups.length > 1 && groups.every(g => g.planName) && !arePlansAscending(groups)) {
+        errors.push(`${BENEFIT_LABELS[benefitType]} plans must be in ascending order`);
+      }
     });
+
+    // Maternity validation: minimum 5 females (age 0-59 only)
+    if (benefitGroups.maternity && benefitGroups.maternity.length > 0) {
+      const maternityFemales = getMaternityEligibleFemales();
+      if (maternityFemales < 5) {
+        errors.push(`Maternity requires minimum 5 female members (age 0-59). Current: ${maternityFemales}`);
+      }
+    }
 
     setGroupErrors(errors);
     return errors.length === 0;
+  };
+
+  const validateInsurers = (): boolean => {
+    if (selectedInsurers.length === 0) {
+      setInsurerError("Please select at least one insurance company");
+      return false;
+    }
+    setInsurerError("");
+    return true;
+  };
+
+  const toggleInsurer = (insurer: InsuranceCompany) => {
+    setSelectedInsurers(prev => 
+      prev.includes(insurer) 
+        ? prev.filter(i => i !== insurer)
+        : [...prev, insurer]
+    );
+    setInsurerError("");
   };
 
   const nextStep = async () => {
@@ -330,10 +391,12 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
     } else if (currentStep === 3) {
       isValid = await form.trigger(["inPatient", "outPatient", "dental", "maternity"]);
     } else if (currentStep === 4) {
+      isValid = validateInsurers();
+    } else if (currentStep === 5) {
       isValid = validateGroups();
     }
 
-    if (isValid && currentStep < 5) {
+    if (isValid && currentStep < 6) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -349,11 +412,16 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
       toast.error("Please fix group structure errors");
       return;
     }
+    if (!validateInsurers()) {
+      toast.error("Please select at least one insurance company");
+      return;
+    }
 
     if (mode === "edit" && initialData) {
       const quotation = {
         ...initialData,
         ...data,
+        insuranceCompanies: selectedInsurers,
         benefitGroups,
         updatedAt: new Date(),
         version: initialData.version + 1,
@@ -364,6 +432,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
     } else {
       const quotation = {
         ...data,
+        insuranceCompanies: selectedInsurers,
         benefitGroups,
         id: `Q-${new Date().getFullYear()}-${String(Date.now()).slice(-3)}`,
         status: "draft" as const,
@@ -676,8 +745,45 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
             </Card>
           )}
 
-          {/* Step 4: Group Structure - In-Patient controls rows, synced to other benefits */}
+          {/* Step 4: Insurance Companies Selection */}
           {currentStep === 4 && (
+            <Card className="form-section">
+              <CardHeader>
+                <CardTitle className="form-section-title">Insurance Companies</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Select the insurance companies to request quotations from
+                </p>
+                <div className="space-y-3">
+                  {INSURANCE_COMPANY_OPTIONS.map((insurer) => (
+                    <div
+                      key={insurer}
+                      className={cn(
+                        "flex flex-row items-center space-x-3 rounded-lg border p-4 cursor-pointer transition-colors",
+                        selectedInsurers.includes(insurer) && "border-primary bg-primary/5"
+                      )}
+                      onClick={() => toggleInsurer(insurer)}
+                    >
+                      <Checkbox
+                        checked={selectedInsurers.includes(insurer)}
+                        onCheckedChange={() => toggleInsurer(insurer)}
+                      />
+                      <div className="space-y-1 leading-none">
+                        <span className="font-medium">{INSURANCE_COMPANIES[insurer]}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {insurerError && (
+                  <p className="text-sm text-destructive">{insurerError}</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Step 5: Group Structure - In-Patient controls rows, synced to other benefits */}
+          {currentStep === 5 && (
             <div className="space-y-6">
               {/* In-Patient Section - Controls rows and member counts */}
               <Card className="form-section">
@@ -889,8 +995,8 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
             </div>
           )}
 
-          {/* Step 5: Review */}
-          {currentStep === 5 && (
+          {/* Step 6: Review */}
+          {currentStep === 6 && (
             <Card className="form-section">
               <CardHeader>
                 <CardTitle className="form-section-title">Review Quotation</CardTitle>
@@ -920,6 +1026,19 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                         {form.watch("endDate") && format(form.watch("endDate"), "PPP")}
                       </p>
                     </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+                    Insurance Companies
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedInsurers.map((insurer) => (
+                      <span key={insurer} className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
+                        {INSURANCE_COMPANIES[insurer]}
+                      </span>
+                    ))}
                   </div>
                 </div>
 
@@ -994,7 +1113,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
               </Button>
             </div>
             <div className="flex gap-2">
-              {currentStep < 5 ? (
+              {currentStep < 6 ? (
                 <Button type="button" onClick={nextStep}>
                   Next
                 </Button>
