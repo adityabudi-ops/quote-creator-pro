@@ -14,16 +14,200 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      approval_history: {
+        Row: {
+          approval_role: Database["public"]["Enums"]["approval_role"]
+          approved_by: string | null
+          comments: string | null
+          created_at: string
+          id: string
+          quotation_id: string
+          status: string
+        }
+        Insert: {
+          approval_role: Database["public"]["Enums"]["approval_role"]
+          approved_by?: string | null
+          comments?: string | null
+          created_at?: string
+          id?: string
+          quotation_id: string
+          status: string
+        }
+        Update: {
+          approval_role?: Database["public"]["Enums"]["approval_role"]
+          approved_by?: string | null
+          comments?: string | null
+          created_at?: string
+          id?: string
+          quotation_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_history_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_history_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurance_companies: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          is_active: boolean
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          is_active?: boolean
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          is_active?: boolean
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      quotations: {
+        Row: {
+          benefits: Json
+          benefits_option: string
+          created_at: string
+          created_by: string
+          end_date: string
+          id: string
+          insurance_companies: string[]
+          insured_address: string
+          insured_groups: Json
+          insured_name: string
+          quotation_number: string
+          start_date: string
+          status: Database["public"]["Enums"]["quotation_status"]
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          benefits: Json
+          benefits_option: string
+          created_at?: string
+          created_by: string
+          end_date: string
+          id?: string
+          insurance_companies: string[]
+          insured_address: string
+          insured_groups: Json
+          insured_name: string
+          quotation_number: string
+          start_date: string
+          status?: Database["public"]["Enums"]["quotation_status"]
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          benefits?: Json
+          benefits_option?: string
+          created_at?: string
+          created_by?: string
+          end_date?: string
+          id?: string
+          insurance_companies?: string[]
+          insured_address?: string
+          insured_groups?: Json
+          insured_name?: string
+          quotation_number?: string
+          start_date?: string
+          status?: Database["public"]["Enums"]["quotation_status"]
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
+      has_user_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["user_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      approval_role: "tenaga_pialang" | "tenaga_ahli"
+      quotation_status:
+        | "draft"
+        | "pending_pialang"
+        | "pending_ahli"
+        | "approved"
+        | "rejected"
+        | "locked"
+      user_role: "sales" | "tenaga_pialang" | "tenaga_ahli" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +334,17 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      approval_role: ["tenaga_pialang", "tenaga_ahli"],
+      quotation_status: [
+        "draft",
+        "pending_pialang",
+        "pending_ahli",
+        "approved",
+        "rejected",
+        "locked",
+      ],
+      user_role: ["sales", "tenaga_pialang", "tenaga_ahli", "admin"],
+    },
   },
 } as const
