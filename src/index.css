@@ -1,103 +1,106 @@
+@import url('https://fonts.googleapis.com/css2?family=Lexend+Deca:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    /* Professional Insurance/Finance Theme */
-    --background: 210 20% 98%;
-    --foreground: 215 25% 15%;
+    /* Premiro Brand Colors */
+    --background: 180 20% 98%;
+    --foreground: 180 15% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 215 25% 15%;
+    --card-foreground: 180 15% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 15%;
+    --popover-foreground: 180 15% 10%;
 
-    /* Deep blue primary - trust & professionalism */
-    --primary: 215 70% 35%;
+    /* Primary Blue - #007C99 */
+    --primary: 190 100% 30%;
     --primary-foreground: 0 0% 100%;
 
-    /* Slate secondary */
-    --secondary: 215 15% 92%;
-    --secondary-foreground: 215 25% 25%;
+    /* Light Blue - #CBEEF3 */
+    --secondary: 186 60% 87%;
+    --secondary-foreground: 200 50% 20%;
 
-    /* Muted slate */
-    --muted: 215 15% 95%;
-    --muted-foreground: 215 15% 45%;
+    /* Light Beige - #FFE8D3 */
+    --muted: 27 100% 91%;
+    --muted-foreground: 20 30% 40%;
 
-    /* Accent - teal for actions */
-    --accent: 180 45% 45%;
-    --accent-foreground: 0 0% 100%;
+    /* Teal accent - #64D3D8 */
+    --accent: 183 60% 62%;
+    --accent-foreground: 200 60% 15%;
 
-    --destructive: 0 72% 51%;
+    /* Dark Red - #CE4949 */
+    --destructive: 0 60% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 215 20% 88%;
-    --input: 215 20% 88%;
-    --ring: 215 70% 35%;
+    --border: 186 30% 85%;
+    --input: 186 30% 85%;
+    --ring: 190 100% 30%;
 
     --radius: 0.5rem;
 
-    /* Status colors */
-    --status-draft: 45 93% 47%;
-    --status-review: 215 70% 55%;
-    --status-approved: 145 65% 42%;
-    --status-locked: 215 15% 55%;
+    /* Status colors from Premiro palette */
+    --status-draft: 45 100% 51%; /* Yellow #FFCF06 */
+    --status-review: 190 100% 30%; /* Primary Blue #007C99 */
+    --status-approved: 122 39% 49%; /* Green #4CAF50 */
+    --status-locked: 0 0% 78%; /* Grey #C6C6C6 */
 
-    /* Sidebar */
-    --sidebar-background: 215 25% 15%;
-    --sidebar-foreground: 215 15% 85%;
-    --sidebar-primary: 180 45% 50%;
+    /* Sidebar - Dark Blue #033F63 */
+    --sidebar-background: 202 92% 20%;
+    --sidebar-foreground: 186 60% 90%;
+    --sidebar-primary: 183 60% 62%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 25% 22%;
-    --sidebar-accent-foreground: 215 15% 90%;
-    --sidebar-border: 215 20% 25%;
-    --sidebar-ring: 180 45% 50%;
+    --sidebar-accent: 202 70% 28%;
+    --sidebar-accent-foreground: 186 60% 95%;
+    --sidebar-border: 202 60% 30%;
+    --sidebar-ring: 183 60% 62%;
 
     /* Custom tokens */
-    --gradient-header: linear-gradient(135deg, hsl(215 70% 35%) 0%, hsl(215 60% 25%) 100%);
+    --gradient-header: linear-gradient(135deg, hsl(190 100% 30%) 0%, hsl(202 92% 20%) 100%);
     --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05);
     --shadow-elevated: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
   }
 
   .dark {
-    --background: 215 25% 10%;
-    --foreground: 210 20% 95%;
+    --background: 202 30% 8%;
+    --foreground: 186 20% 95%;
 
-    --card: 215 25% 13%;
-    --card-foreground: 210 20% 95%;
+    --card: 202 30% 12%;
+    --card-foreground: 186 20% 95%;
 
-    --popover: 215 25% 13%;
-    --popover-foreground: 210 20% 95%;
+    --popover: 202 30% 12%;
+    --popover-foreground: 186 20% 95%;
 
-    --primary: 215 65% 55%;
+    --primary: 183 60% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 215 20% 20%;
-    --secondary-foreground: 210 20% 90%;
+    --secondary: 202 30% 20%;
+    --secondary-foreground: 186 20% 90%;
 
-    --muted: 215 20% 18%;
-    --muted-foreground: 215 15% 60%;
+    --muted: 202 25% 18%;
+    --muted-foreground: 186 15% 60%;
 
-    --accent: 180 45% 50%;
+    --accent: 183 50% 45%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 62% 45%;
+    --destructive: 0 55% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 215 20% 22%;
-    --input: 215 20% 22%;
-    --ring: 215 65% 55%;
+    --border: 202 25% 22%;
+    --input: 202 25% 22%;
+    --ring: 183 60% 50%;
 
-    --sidebar-background: 215 25% 8%;
-    --sidebar-foreground: 215 15% 85%;
-    --sidebar-primary: 180 45% 50%;
+    --sidebar-background: 202 40% 6%;
+    --sidebar-foreground: 186 15% 85%;
+    --sidebar-primary: 183 50% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 25% 15%;
-    --sidebar-accent-foreground: 215 15% 90%;
-    --sidebar-border: 215 20% 18%;
-    --sidebar-ring: 180 45% 50%;
+    --sidebar-accent: 202 35% 15%;
+    --sidebar-accent-foreground: 186 15% 90%;
+    --sidebar-border: 202 25% 18%;
+    --sidebar-ring: 183 50% 50%;
   }
 }
 
@@ -108,17 +111,18 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-family: 'Lexend Deca', system-ui, sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
+    font-family: 'Poppins', system-ui, sans-serif;
     @apply font-semibold tracking-tight;
   }
 }
 
 @layer components {
   .page-header {
-    @apply bg-gradient-to-r from-primary to-primary/80 text-primary-foreground;
+    @apply bg-gradient-to-r from-primary to-[hsl(202,92%,20%)] text-primary-foreground;
   }
 
   .status-badge {
@@ -130,7 +134,7 @@
   }
 
   .status-review {
-    @apply bg-blue-100 text-blue-800;
+    @apply bg-cyan-100 text-cyan-800;
   }
 
   .status-approved {
