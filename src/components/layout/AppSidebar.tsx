@@ -1,11 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, FilePlus, FileSearch, Settings, ClipboardList, History } from "lucide-react";
+import { LayoutDashboard, FilePlus, FileSearch, Settings, History, CheckSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/quotation/new", label: "New Quotation", icon: FilePlus },
   { href: "/quotations", label: "All Quotations", icon: FileSearch },
+  { href: "/approvals", label: "Approvals", icon: CheckSquare },
   { href: "/audit-log", label: "Audit Log", icon: History },
 ];
 

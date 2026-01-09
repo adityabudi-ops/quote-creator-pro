@@ -1,21 +1,48 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format, addMonths } from "date-fns";
-import { CalendarIcon, Plus, Trash2, FileText, ArrowLeft, ArrowRight, Save, Eye } from "lucide-react";
+import { format, addMonths, subDays } from "date-fns";
+import { CalendarIcon, Plus, Trash2, Save, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import type { InsuredGroup } from "@/types/quotation";
+
+// Plan options per benefit type
+const PLAN_OPTIONS = {
+  inPatient: [
+    "IP 300", "IP 400", "IP 500", "IP 600", "IP 700", "IP 800",
+    "IP 1000", "IP 1250", "IP 1500", "IP 2000", "IP 2500", "IP 3000"
+  ],
+  dental: [
+    "DE 1500", "DE 2000", "DE 2500", "DE 3000", "DE 3500", "DE 4000",
+    "DE 4500", "DE 5000", "DE 5500", "DE 6000", "DE 6500", "DE 7000"
+  ],
+  maternity: [
+    "MA 4000", "MA 4500", "MA 5000", "MA 6000", "MA 6500", "MA 7000",
+    "MA 7500", "MA 8000", "MA 9000", "MA 10000"
+  ],
+  outPatient: [
+    "OP 150", "OP 175", "OP 200", "OP 225", "OP 250", "OP 300",
+    "OP 350", "OP 425", "OP 450", "OP 475", "OP 500", "OP 550"
+  ],
+};
+
+interface BenefitGroup {
+  id: string;
+  benefitType: 'inPatient' | 'outPatient' | 'dental' | 'maternity';
+  planName: string;
+  numberOfMembers: number;
+}
 
 const quotationSchema = z.object({
   insuredName: z.string().min(1, "Insured name is required").max(200, "Name too long"),
@@ -29,17 +56,11 @@ const quotationSchema = z.object({
 }).refine((data) => data.endDate > data.startDate, {
   message: "End date must be after start date",
   path: ["endDate"],
-}).refine((data) => data.inPatient || data.outPatient || data.dental || data.maternity, {
-  message: "At least one benefit must be selected",
-  path: ["inPatient"],
 }).refine((data) => {
-  // Out-Patient, Dental, Maternity require In-Patient
-  if ((data.outPatient || data.dental || data.maternity) && !data.inPatient) {
-    return false;
-  }
-  return true;
+  // In-Patient is always required (mandatory)
+  return data.inPatient;
 }, {
-  message: "Out-Patient, Dental, and Maternity require In-Patient coverage",
+  message: "In-Patient coverage is mandatory",
   path: ["inPatient"],
 });
 
@@ -53,12 +74,19 @@ const steps = [
   { id: 5, title: "Review" },
 ];
 
+const BENEFIT_LABELS: Record<string, string> = {
+  inPatient: "In-Patient",
+  outPatient: "Out-Patient",
+  dental: "Dental",
+  maternity: "Maternity",
+};
+
 export function QuotationForm() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
-  const [insuredGroups, setInsuredGroups] = useState<InsuredGroup[]>([
-    { id: "1", planName: "", numberOfMembers: 0 },
-  ]);
+  const [benefitGroups, setBenefitGroups] = useState<Record<string, BenefitGroup[]>>({
+    inPatient: [{ id: "ip-1", benefitType: "inPatient", planName: "", numberOfMembers: 0 }],
+  });
   const [groupErrors, setGroupErrors] = useState<string[]>([]);
 
   const form = useForm<QuotationFormData>({
@@ -67,53 +95,106 @@ export function QuotationForm() {
       insuredName: "",
       insuredAddress: "",
       startDate: new Date(),
-      endDate: addMonths(new Date(), 12),
-      inPatient: false,
+      endDate: subDays(addMonths(new Date(), 12), 1),
+      inPatient: true, // Always true by default (mandatory)
       outPatient: false,
       dental: false,
       maternity: false,
     },
   });
 
+  const watchStartDate = form.watch("startDate");
   const watchInPatient = form.watch("inPatient");
+  const watchOutPatient = form.watch("outPatient");
+  const watchDental = form.watch("dental");
+  const watchMaternity = form.watch("maternity");
 
-  const addGroup = () => {
-    setInsuredGroups([
-      ...insuredGroups,
-      { id: Date.now().toString(), planName: "", numberOfMembers: 0 },
-    ]);
-  };
-
-  const removeGroup = (id: string) => {
-    if (insuredGroups.length > 1) {
-      setInsuredGroups(insuredGroups.filter((g) => g.id !== id));
+  // Auto-calculate end date when start date changes (12 months - 1 day)
+  useEffect(() => {
+    if (watchStartDate) {
+      const newEndDate = subDays(addMonths(watchStartDate, 12), 1);
+      form.setValue("endDate", newEndDate);
     }
+  }, [watchStartDate, form]);
+
+  // Update benefit groups when benefits selection changes
+  useEffect(() => {
+    const selectedBenefits = {
+      inPatient: watchInPatient,
+      outPatient: watchOutPatient,
+      dental: watchDental,
+      maternity: watchMaternity,
+    };
+
+    setBenefitGroups((prev) => {
+      const newGroups: Record<string, BenefitGroup[]> = {};
+
+      Object.entries(selectedBenefits).forEach(([benefit, isSelected]) => {
+        if (isSelected) {
+          // Keep existing groups or create new default
+          newGroups[benefit] = prev[benefit] || [
+            { id: `${benefit}-1`, benefitType: benefit as BenefitGroup['benefitType'], planName: "", numberOfMembers: 0 }
+          ];
+        }
+      });
+
+      return newGroups;
+    });
+  }, [watchInPatient, watchOutPatient, watchDental, watchMaternity]);
+
+  const addGroup = (benefitType: string) => {
+    setBenefitGroups((prev) => ({
+      ...prev,
+      [benefitType]: [
+        ...(prev[benefitType] || []),
+        { id: `${benefitType}-${Date.now()}`, benefitType: benefitType as BenefitGroup['benefitType'], planName: "", numberOfMembers: 0 },
+      ],
+    }));
   };
 
-  const updateGroup = (id: string, field: keyof InsuredGroup, value: string | number) => {
-    setInsuredGroups(
-      insuredGroups.map((g) =>
+  const removeGroup = (benefitType: string, id: string) => {
+    setBenefitGroups((prev) => {
+      const groups = prev[benefitType] || [];
+      if (groups.length > 1) {
+        return {
+          ...prev,
+          [benefitType]: groups.filter((g) => g.id !== id),
+        };
+      }
+      return prev;
+    });
+  };
+
+  const updateGroup = (benefitType: string, id: string, field: keyof BenefitGroup, value: string | number) => {
+    setBenefitGroups((prev) => ({
+      ...prev,
+      [benefitType]: (prev[benefitType] || []).map((g) =>
         g.id === id ? { ...g, [field]: value } : g
-      )
-    );
+      ),
+    }));
   };
 
   const validateGroups = (): boolean => {
     const errors: string[] = [];
-    const planNames = new Set<string>();
+    const allPlanNames = new Set<string>();
 
-    insuredGroups.forEach((group, index) => {
-      if (!group.planName.trim()) {
-        errors.push(`Plan name is required for row ${index + 1}`);
-      } else if (planNames.has(group.planName.toLowerCase())) {
-        errors.push(`Duplicate plan name: ${group.planName}`);
-      } else {
-        planNames.add(group.planName.toLowerCase());
-      }
+    Object.entries(benefitGroups).forEach(([benefitType, groups]) => {
+      groups.forEach((group, index) => {
+        if (!group.planName) {
+          errors.push(`Plan is required for ${BENEFIT_LABELS[benefitType]} row ${index + 1}`);
+        } else {
+          const planKey = `${benefitType}-${group.planName}`;
+          if (allPlanNames.has(planKey)) {
+            errors.push(`Duplicate plan in ${BENEFIT_LABELS[benefitType]}: ${group.planName}`);
+          } else {
+            allPlanNames.add(planKey);
+          }
+        }
 
-      if (group.numberOfMembers <= 0) {
-        errors.push(`Number of members must be positive for ${group.planName || `row ${index + 1}`}`);
-      }
+        if (group.numberOfMembers <= 0) {
+          errors.push(`Number of members must be positive for ${BENEFIT_LABELS[benefitType]} ${group.planName || `row ${index + 1}`}`);
+        }
+      });
     });
 
     setGroupErrors(errors);
@@ -152,7 +233,7 @@ export function QuotationForm() {
 
     const quotation = {
       ...data,
-      insuredGroups,
+      benefitGroups,
       id: Date.now().toString(),
       status: "draft" as const,
       createdAt: new Date(),
@@ -166,7 +247,11 @@ export function QuotationForm() {
     navigate("/");
   };
 
-  const totalMembers = insuredGroups.reduce((sum, g) => sum + (g.numberOfMembers || 0), 0);
+  const getTotalMembers = (benefitType: string) => {
+    return (benefitGroups[benefitType] || []).reduce((sum, g) => sum + (g.numberOfMembers || 0), 0);
+  };
+
+  const selectedBenefits = Object.keys(benefitGroups);
 
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
@@ -280,7 +365,7 @@ export function QuotationForm() {
                               </Button>
                             </FormControl>
                           </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
+                          <PopoverContent className="w-auto p-0 bg-popover" align="start">
                             <Calendar
                               mode="single"
                               selected={field.value}
@@ -289,6 +374,7 @@ export function QuotationForm() {
                             />
                           </PopoverContent>
                         </Popover>
+                        <FormDescription>Policy coverage begins on this date</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -298,46 +384,22 @@ export function QuotationForm() {
                     name="endDate"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel>End Date *</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant="outline"
-                                className={cn(
-                                  "w-full pl-3 text-left font-normal",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value ? format(field.value, "PPP") : "Select date"}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value}
-                              onSelect={field.onChange}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
+                        <FormLabel>End Date (Auto-calculated)</FormLabel>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            className="w-full pl-3 text-left font-normal"
+                            disabled
+                          >
+                            {field.value ? format(field.value, "PPP") : "Select start date first"}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                        <FormDescription>12 months minus 1 day from start date</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                </div>
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground">
-                    <strong>Policy Duration:</strong>{" "}
-                    {form.watch("startDate") && form.watch("endDate")
-                      ? `${Math.ceil(
-                          (form.watch("endDate").getTime() - form.watch("startDate").getTime()) /
-                            (1000 * 60 * 60 * 24 * 30)
-                        )} months`
-                      : "Select dates"}
-                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -355,15 +417,18 @@ export function QuotationForm() {
                     control={form.control}
                     name="inPatient"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-lg border p-4">
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-lg border border-primary bg-primary/5 p-4">
                         <FormControl>
                           <Checkbox
                             checked={field.value}
                             onCheckedChange={field.onChange}
+                            disabled={true} // Always mandatory
                           />
                         </FormControl>
                         <div className="space-y-1 leading-none">
-                          <FormLabel className="cursor-pointer">In-Patient</FormLabel>
+                          <FormLabel className="cursor-pointer">
+                            In-Patient <span className="text-xs text-primary font-normal">(Mandatory)</span>
+                          </FormLabel>
                           <FormDescription>Hospital admission coverage</FormDescription>
                         </div>
                       </FormItem>
@@ -449,82 +514,96 @@ export function QuotationForm() {
             </Card>
           )}
 
-          {/* Step 4: Group Structure */}
+          {/* Step 4: Group Structure - Dynamic based on selected benefits */}
           {currentStep === 4 && (
-            <Card className="form-section">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="form-section-title mb-0 border-b-0 pb-0">
-                  Insured Group Structure
-                </CardTitle>
-                <Button type="button" variant="outline" size="sm" onClick={addGroup}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Plan
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th className="w-1/2">Plan Name</th>
-                        <th className="w-1/3">Number of Members</th>
-                        <th className="w-20"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {insuredGroups.map((group) => (
-                        <tr key={group.id}>
-                          <td>
-                            <Input
-                              value={group.planName}
-                              onChange={(e) => updateGroup(group.id, "planName", e.target.value)}
-                              placeholder="e.g., Executive, Staff"
-                            />
-                          </td>
-                          <td>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={group.numberOfMembers || ""}
-                              onChange={(e) =>
-                                updateGroup(group.id, "numberOfMembers", parseInt(e.target.value) || 0)
-                              }
-                              placeholder="0"
-                            />
-                          </td>
-                          <td>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeGroup(group.id)}
-                              disabled={insuredGroups.length === 1}
-                              className="text-muted-foreground hover:text-destructive"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr>
-                        <td className="font-medium">Total</td>
-                        <td className="font-medium">{totalMembers}</td>
-                        <td></td>
-                      </tr>
-                    </tfoot>
-                  </table>
+            <div className="space-y-6">
+              {selectedBenefits.map((benefitType) => (
+                <Card key={benefitType} className="form-section">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="form-section-title mb-0 border-b-0 pb-0">
+                      {BENEFIT_LABELS[benefitType]} Plans
+                    </CardTitle>
+                    <Button type="button" variant="outline" size="sm" onClick={() => addGroup(benefitType)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Plan
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th className="w-1/2">Plan Name</th>
+                            <th className="w-1/3">Number of Members</th>
+                            <th className="w-20"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(benefitGroups[benefitType] || []).map((group) => (
+                            <tr key={group.id}>
+                              <td>
+                                <Select
+                                  value={group.planName}
+                                  onValueChange={(value) => updateGroup(benefitType, group.id, "planName", value)}
+                                >
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select a plan" />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-popover">
+                                    {PLAN_OPTIONS[benefitType as keyof typeof PLAN_OPTIONS]?.map((plan) => (
+                                      <SelectItem key={plan} value={plan}>
+                                        {plan}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                              <td>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  value={group.numberOfMembers || ""}
+                                  onChange={(e) =>
+                                    updateGroup(benefitType, group.id, "numberOfMembers", parseInt(e.target.value) || 0)
+                                  }
+                                  placeholder="0"
+                                />
+                              </td>
+                              <td>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => removeGroup(benefitType, group.id)}
+                                  disabled={(benefitGroups[benefitType] || []).length === 1}
+                                  className="text-muted-foreground hover:text-destructive"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr>
+                            <td className="font-medium">Total</td>
+                            <td className="font-medium">{getTotalMembers(benefitType)}</td>
+                            <td></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              {groupErrors.length > 0 && (
+                <div className="p-4 bg-destructive/10 rounded-lg">
+                  {groupErrors.map((error, idx) => (
+                    <p key={idx} className="text-sm text-destructive">{error}</p>
+                  ))}
                 </div>
-                {groupErrors.length > 0 && (
-                  <div className="mt-4 p-4 bg-destructive/10 rounded-lg">
-                    {groupErrors.map((error, idx) => (
-                      <p key={idx} className="text-sm text-destructive">{error}</p>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+              )}
+            </div>
           )}
 
           {/* Step 5: Review */}
@@ -563,50 +642,35 @@ export function QuotationForm() {
 
                 <div className="space-y-4">
                   <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
-                    Benefits
+                    Benefits & Plans
                   </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {form.watch("inPatient") && (
-                      <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">In-Patient</span>
-                    )}
-                    {form.watch("outPatient") && (
-                      <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">Out-Patient</span>
-                    )}
-                    {form.watch("dental") && (
-                      <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">Dental</span>
-                    )}
-                    {form.watch("maternity") && (
-                      <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">Maternity</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
-                    Group Structure
-                  </h3>
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Plan Name</th>
-                        <th>Members</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {insuredGroups.map((group) => (
-                        <tr key={group.id}>
-                          <td>{group.planName}</td>
-                          <td>{group.numberOfMembers}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr>
-                        <td className="font-medium">Total Members</td>
-                        <td className="font-medium">{totalMembers}</td>
-                      </tr>
-                    </tfoot>
-                  </table>
+                  {selectedBenefits.map((benefitType) => (
+                    <div key={benefitType} className="space-y-2">
+                      <h4 className="font-medium text-foreground">{BENEFIT_LABELS[benefitType]}</h4>
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Plan Name</th>
+                            <th>Members</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(benefitGroups[benefitType] || []).map((group) => (
+                            <tr key={group.id}>
+                              <td>{group.planName}</td>
+                              <td>{group.numberOfMembers}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr>
+                            <td className="font-medium">Total Members</td>
+                            <td className="font-medium">{getTotalMembers(benefitType)}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -620,14 +684,12 @@ export function QuotationForm() {
               onClick={prevStep}
               disabled={currentStep === 1}
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
               Previous
             </Button>
             <div className="flex gap-2">
               {currentStep < 5 ? (
                 <Button type="button" onClick={nextStep}>
                   Next
-                  <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               ) : (
                 <>

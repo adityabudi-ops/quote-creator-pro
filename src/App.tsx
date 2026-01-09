@@ -8,6 +8,8 @@ import Index from "./pages/Index";
 import NewQuotation from "./pages/NewQuotation";
 import AllQuotations from "./pages/AllQuotations";
 import AuditLog from "./pages/AuditLog";
+import Login from "./pages/Login";
+import Approvals from "./pages/Approvals";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -18,16 +20,24 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AppLayout>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/quotation/new" element={<NewQuotation />} />
-            <Route path="/quotations" element={<AllQuotations />} />
-            <Route path="/audit-log" element={<AuditLog />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AppLayout>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/*"
+            element={
+              <AppLayout>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/quotation/new" element={<NewQuotation />} />
+                  <Route path="/quotations" element={<AllQuotations />} />
+                  <Route path="/approvals" element={<Approvals />} />
+                  <Route path="/audit-log" element={<AuditLog />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </AppLayout>
+            }
+          />
+        </Routes>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
