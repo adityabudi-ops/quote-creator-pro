@@ -6,6 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/quotation/StatusBadge";
 import type { QuotationData } from "@/types/quotation";
 
+// Default member breakdown helper
+const defaultMembers = {
+  male0to59: 0,
+  female0to59: 0,
+  child0to59: 0,
+  male60to64: 0,
+  female60to64: 0,
+};
+
 // Mock data - in real app this would be fetched
 const mockQuotations: Record<string, QuotationData> = {
   "Q-2024-001": {
@@ -15,7 +24,7 @@ const mockQuotations: Record<string, QuotationData> = {
     startDate: new Date("2024-02-01"),
     endDate: new Date("2025-01-31"),
     benefits: { inPatient: true, outPatient: true, dental: false, maternity: false },
-    insuredGroups: [{ id: "1", planName: "IP 500", numberOfMembers: 10 }],
+    insuredGroups: [{ id: "1", planName: "IP 500", members: { ...defaultMembers, male0to59: 5, female0to59: 5 } }],
     status: "approved",
     createdAt: new Date("2024-01-15"),
     updatedAt: new Date("2024-01-20"),
@@ -30,8 +39,8 @@ const mockQuotations: Record<string, QuotationData> = {
     endDate: new Date("2025-02-28"),
     benefits: { inPatient: true, outPatient: true, dental: true, maternity: true },
     insuredGroups: [
-      { id: "1", planName: "IP 700", numberOfMembers: 5 },
-      { id: "2", planName: "IP 500", numberOfMembers: 25 },
+      { id: "1", planName: "IP 700", members: { ...defaultMembers, male0to59: 3, female0to59: 2 } },
+      { id: "2", planName: "IP 500", members: { ...defaultMembers, male0to59: 10, female0to59: 10, child0to59: 5 } },
     ],
     status: "review",
     createdAt: new Date("2024-01-18"),
@@ -46,7 +55,7 @@ const mockQuotations: Record<string, QuotationData> = {
     startDate: new Date("2024-04-01"),
     endDate: new Date("2025-03-31"),
     benefits: { inPatient: true, outPatient: false, dental: false, maternity: false },
-    insuredGroups: [{ id: "1", planName: "IP 1000", numberOfMembers: 50 }],
+    insuredGroups: [{ id: "1", planName: "IP 1000", members: { ...defaultMembers, male0to59: 25, female0to59: 20, child0to59: 5 } }],
     status: "draft",
     createdAt: new Date("2024-01-20"),
     updatedAt: new Date("2024-01-20"),
@@ -75,7 +84,10 @@ export default function QuotationDetails() {
   }
 
   const getTotalMembers = () => {
-    return quotation.insuredGroups.reduce((sum, g) => sum + g.numberOfMembers, 0);
+    return quotation.insuredGroups.reduce((sum, g) => {
+      const m = g.members;
+      return sum + m.male0to59 + m.female0to59 + m.child0to59 + m.male60to64 + m.female60to64;
+    }, 0);
   };
 
   const canEdit = quotation.status !== "locked" && quotation.status !== "approved";
@@ -225,12 +237,15 @@ export default function QuotationDetails() {
                   </tr>
                 </thead>
                 <tbody>
-                  {quotation.insuredGroups.map((group) => (
-                    <tr key={group.id} className="border-b last:border-0">
-                      <td className="py-3 font-medium">{group.planName}</td>
-                      <td className="py-3 text-right">{group.numberOfMembers}</td>
-                    </tr>
-                  ))}
+                  {quotation.insuredGroups.map((group) => {
+                    const total = group.members.male0to59 + group.members.female0to59 + group.members.child0to59 + group.members.male60to64 + group.members.female60to64;
+                    return (
+                      <tr key={group.id} className="border-b last:border-0">
+                        <td className="py-3 font-medium">{group.planName}</td>
+                        <td className="py-3 text-right">{total}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

@@ -38,12 +38,28 @@ const PLAN_OPTIONS = {
   ],
 };
 
+interface MemberBreakdown {
+  male0to59: number;
+  female0to59: number;
+  child0to59: number;
+  male60to64: number;
+  female60to64: number;
+}
+
 interface BenefitGroup {
   id: string;
   benefitType: 'inPatient' | 'outPatient' | 'dental' | 'maternity';
   planName: string;
-  numberOfMembers: number;
+  members: MemberBreakdown;
 }
+
+const DEFAULT_MEMBERS: MemberBreakdown = {
+  male0to59: 0,
+  female0to59: 0,
+  child0to59: 0,
+  male60to64: 0,
+  female60to64: 0,
+};
 
 const quotationSchema = z.object({
   insuredName: z.string().min(1, "Insured name is required").max(200, "Name too long"),
@@ -101,7 +117,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
           .filter(g => g.planName.startsWith("IP"))
           .map(g => ({ ...g, benefitType: "inPatient" as const }));
         if (groups.inPatient.length === 0) {
-          groups.inPatient = [{ id: "ip-1", benefitType: "inPatient", planName: "", numberOfMembers: 0 }];
+          groups.inPatient = [{ id: "ip-1", benefitType: "inPatient", planName: "", members: { ...DEFAULT_MEMBERS } }];
         }
       }
       if (initialData.benefits.outPatient) {
@@ -109,7 +125,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
           .filter(g => g.planName.startsWith("OP"))
           .map(g => ({ ...g, benefitType: "outPatient" as const }));
         if (groups.outPatient.length === 0) {
-          groups.outPatient = [{ id: "op-1", benefitType: "outPatient", planName: "", numberOfMembers: 0 }];
+          groups.outPatient = [{ id: "op-1", benefitType: "outPatient", planName: "", members: { ...DEFAULT_MEMBERS } }];
         }
       }
       if (initialData.benefits.dental) {
@@ -117,7 +133,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
           .filter(g => g.planName.startsWith("DE"))
           .map(g => ({ ...g, benefitType: "dental" as const }));
         if (groups.dental.length === 0) {
-          groups.dental = [{ id: "de-1", benefitType: "dental", planName: "", numberOfMembers: 0 }];
+          groups.dental = [{ id: "de-1", benefitType: "dental", planName: "", members: { ...DEFAULT_MEMBERS } }];
         }
       }
       if (initialData.benefits.maternity) {
@@ -125,17 +141,17 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
           .filter(g => g.planName.startsWith("MA"))
           .map(g => ({ ...g, benefitType: "maternity" as const }));
         if (groups.maternity.length === 0) {
-          groups.maternity = [{ id: "ma-1", benefitType: "maternity", planName: "", numberOfMembers: 0 }];
+          groups.maternity = [{ id: "ma-1", benefitType: "maternity", planName: "", members: { ...DEFAULT_MEMBERS } }];
         }
       }
       // If no groups found, default to inPatient
       if (Object.keys(groups).length === 0) {
-        groups.inPatient = [{ id: "ip-1", benefitType: "inPatient", planName: "", numberOfMembers: 0 }];
+        groups.inPatient = [{ id: "ip-1", benefitType: "inPatient", planName: "", members: { ...DEFAULT_MEMBERS } }];
       }
       return groups;
     }
     return {
-      inPatient: [{ id: "ip-1", benefitType: "inPatient", planName: "", numberOfMembers: 0 }],
+      inPatient: [{ id: "ip-1", benefitType: "inPatient", planName: "", members: { ...DEFAULT_MEMBERS } }],
     };
   };
 
@@ -186,7 +202,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
         if (isSelected) {
           // Keep existing groups or create new default
           newGroups[benefit] = prev[benefit] || [
-            { id: `${benefit}-1`, benefitType: benefit as BenefitGroup['benefitType'], planName: "", numberOfMembers: 0 }
+            { id: `${benefit}-1`, benefitType: benefit as BenefitGroup['benefitType'], planName: "", members: { ...DEFAULT_MEMBERS } }
           ];
         }
       });
@@ -200,7 +216,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
       ...prev,
       [benefitType]: [
         ...(prev[benefitType] || []),
-        { id: `${benefitType}-${Date.now()}`, benefitType: benefitType as BenefitGroup['benefitType'], planName: "", numberOfMembers: 0 },
+        { id: `${benefitType}-${Date.now()}`, benefitType: benefitType as BenefitGroup['benefitType'], planName: "", members: { ...DEFAULT_MEMBERS } },
       ],
     }));
   };
@@ -218,12 +234,17 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
     });
   };
 
-  const updateGroup = (benefitType: string, id: string, field: keyof BenefitGroup, value: string | number) => {
+  const updateGroup = (benefitType: string, id: string, field: keyof BenefitGroup | keyof MemberBreakdown, value: string | number) => {
     setBenefitGroups((prev) => ({
       ...prev,
-      [benefitType]: (prev[benefitType] || []).map((g) =>
-        g.id === id ? { ...g, [field]: value } : g
-      ),
+      [benefitType]: (prev[benefitType] || []).map((g) => {
+        if (g.id !== id) return g;
+        if (field === 'planName' || field === 'benefitType' || field === 'id') {
+          return { ...g, [field]: value };
+        }
+        // It's a member field
+        return { ...g, members: { ...g.members, [field]: value } };
+      }),
     }));
   };
 
@@ -244,8 +265,9 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
           }
         }
 
-        if (group.numberOfMembers <= 0) {
-          errors.push(`Number of members must be positive for ${BENEFIT_LABELS[benefitType]} ${group.planName || `row ${index + 1}`}`);
+        const totalMembers = getGroupTotal(group);
+        if (totalMembers <= 0) {
+          errors.push(`At least one member is required for ${BENEFIT_LABELS[benefitType]} ${group.planName || `row ${index + 1}`}`);
         }
       });
     });
@@ -312,8 +334,13 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
     }
   };
 
+  const getGroupTotal = (group: BenefitGroup) => {
+    const m = group.members;
+    return m.male0to59 + m.female0to59 + m.child0to59 + m.male60to64 + m.female60to64;
+  };
+
   const getTotalMembers = (benefitType: string) => {
-    return (benefitGroups[benefitType] || []).reduce((sum, g) => sum + (g.numberOfMembers || 0), 0);
+    return (benefitGroups[benefitType] || []).reduce((sum, g) => sum + getGroupTotal(g), 0);
   };
 
   const selectedBenefits = Object.keys(benefitGroups);
@@ -598,9 +625,18 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                       <table className="data-table">
                         <thead>
                           <tr>
-                            <th className="w-1/2">Plan Name</th>
-                            <th className="w-1/3">Number of Members</th>
-                            <th className="w-20"></th>
+                            <th rowSpan={2} className="align-bottom">Plan Name</th>
+                            <th colSpan={3} className="text-center border-b-0">Age 0-59</th>
+                            <th colSpan={2} className="text-center border-b-0">Age 60-64</th>
+                            <th rowSpan={2} className="align-bottom text-center">Total</th>
+                            <th rowSpan={2}></th>
+                          </tr>
+                          <tr>
+                            <th className="text-center">Male</th>
+                            <th className="text-center">Female</th>
+                            <th className="text-center">Child</th>
+                            <th className="text-center">Male</th>
+                            <th className="text-center">Female</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -611,7 +647,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                                   value={group.planName}
                                   onValueChange={(value) => updateGroup(benefitType, group.id, "planName", value)}
                                 >
-                                  <SelectTrigger className="w-full">
+                                  <SelectTrigger className="w-full min-w-[120px]">
                                     <SelectValue placeholder="Select a plan" />
                                   </SelectTrigger>
                                   <SelectContent className="bg-popover">
@@ -626,13 +662,55 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                               <td>
                                 <Input
                                   type="number"
-                                  min="1"
-                                  value={group.numberOfMembers || ""}
-                                  onChange={(e) =>
-                                    updateGroup(benefitType, group.id, "numberOfMembers", parseInt(e.target.value) || 0)
-                                  }
+                                  min="0"
+                                  className="w-16 text-center"
+                                  value={group.members.male0to59 || ""}
+                                  onChange={(e) => updateGroup(benefitType, group.id, "male0to59", parseInt(e.target.value) || 0)}
                                   placeholder="0"
                                 />
+                              </td>
+                              <td>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  className="w-16 text-center"
+                                  value={group.members.female0to59 || ""}
+                                  onChange={(e) => updateGroup(benefitType, group.id, "female0to59", parseInt(e.target.value) || 0)}
+                                  placeholder="0"
+                                />
+                              </td>
+                              <td>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  className="w-16 text-center"
+                                  value={group.members.child0to59 || ""}
+                                  onChange={(e) => updateGroup(benefitType, group.id, "child0to59", parseInt(e.target.value) || 0)}
+                                  placeholder="0"
+                                />
+                              </td>
+                              <td>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  className="w-16 text-center"
+                                  value={group.members.male60to64 || ""}
+                                  onChange={(e) => updateGroup(benefitType, group.id, "male60to64", parseInt(e.target.value) || 0)}
+                                  placeholder="0"
+                                />
+                              </td>
+                              <td>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  className="w-16 text-center"
+                                  value={group.members.female60to64 || ""}
+                                  onChange={(e) => updateGroup(benefitType, group.id, "female60to64", parseInt(e.target.value) || 0)}
+                                  placeholder="0"
+                                />
+                              </td>
+                              <td className="text-center font-medium">
+                                {getGroupTotal(group)}
                               </td>
                               <td>
                                 <Button
@@ -652,7 +730,8 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                         <tfoot>
                           <tr>
                             <td className="font-medium">Total</td>
-                            <td className="font-medium">{getTotalMembers(benefitType)}</td>
+                            <td colSpan={5}></td>
+                            <td className="text-center font-medium">{getTotalMembers(benefitType)}</td>
                             <td></td>
                           </tr>
                         </tfoot>
@@ -712,28 +791,45 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                   {selectedBenefits.map((benefitType) => (
                     <div key={benefitType} className="space-y-2">
                       <h4 className="font-medium text-foreground">{BENEFIT_LABELS[benefitType]}</h4>
-                      <table className="data-table">
-                        <thead>
-                          <tr>
-                            <th>Plan Name</th>
-                            <th>Members</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(benefitGroups[benefitType] || []).map((group) => (
-                            <tr key={group.id}>
-                              <td>{group.planName}</td>
-                              <td>{group.numberOfMembers}</td>
+                      <div className="overflow-x-auto">
+                        <table className="data-table text-sm">
+                          <thead>
+                            <tr>
+                              <th rowSpan={2} className="align-bottom">Plan</th>
+                              <th colSpan={3} className="text-center border-b-0">Age 0-59</th>
+                              <th colSpan={2} className="text-center border-b-0">Age 60-64</th>
+                              <th rowSpan={2} className="align-bottom text-center">Total</th>
                             </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr>
-                            <td className="font-medium">Total Members</td>
-                            <td className="font-medium">{getTotalMembers(benefitType)}</td>
-                          </tr>
-                        </tfoot>
-                      </table>
+                            <tr>
+                              <th className="text-center">M</th>
+                              <th className="text-center">F</th>
+                              <th className="text-center">C</th>
+                              <th className="text-center">M</th>
+                              <th className="text-center">F</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(benefitGroups[benefitType] || []).map((group) => (
+                              <tr key={group.id}>
+                                <td>{group.planName}</td>
+                                <td className="text-center">{group.members.male0to59}</td>
+                                <td className="text-center">{group.members.female0to59}</td>
+                                <td className="text-center">{group.members.child0to59}</td>
+                                <td className="text-center">{group.members.male60to64}</td>
+                                <td className="text-center">{group.members.female60to64}</td>
+                                <td className="text-center font-medium">{getGroupTotal(group)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr>
+                              <td className="font-medium">Total</td>
+                              <td colSpan={5}></td>
+                              <td className="text-center font-medium">{getTotalMembers(benefitType)}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
                     </div>
                   ))}
                 </div>
