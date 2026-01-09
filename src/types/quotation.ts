@@ -2,10 +2,18 @@ export type QuotationStatus = 'draft' | 'review' | 'approved' | 'locked';
 
 export type BenefitType = 'inPatient' | 'outPatient' | 'dental' | 'maternity';
 
+export interface MemberBreakdown {
+  male0to59: number;
+  female0to59: number;
+  child0to59: number;
+  male60to64: number;
+  female60to64: number;
+}
+
 export interface InsuredGroup {
   id: string;
   planName: string;
-  numberOfMembers: number;
+  members: MemberBreakdown;
 }
 
 export interface QuotationData {

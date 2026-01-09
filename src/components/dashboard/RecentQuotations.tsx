@@ -11,6 +11,15 @@ import {
 import { StatusBadge } from "@/components/quotation/StatusBadge";
 import type { QuotationData } from "@/types/quotation";
 
+// Default member breakdown helper
+const defaultMembers = {
+  male0to59: 0,
+  female0to59: 0,
+  child0to59: 0,
+  male60to64: 0,
+  female60to64: 0,
+};
+
 // Sample data
 const sampleQuotations: QuotationData[] = [
   {
@@ -20,7 +29,7 @@ const sampleQuotations: QuotationData[] = [
     startDate: new Date("2024-02-01"),
     endDate: new Date("2025-02-01"),
     benefits: { inPatient: true, outPatient: true, dental: false, maternity: false },
-    insuredGroups: [{ id: "1", planName: "Executive", numberOfMembers: 10 }],
+    insuredGroups: [{ id: "1", planName: "IP 500", members: { ...defaultMembers, male0to59: 5, female0to59: 5 } }],
     status: "approved",
     createdAt: new Date("2024-01-15"),
     updatedAt: new Date("2024-01-20"),
@@ -35,8 +44,8 @@ const sampleQuotations: QuotationData[] = [
     endDate: new Date("2025-03-01"),
     benefits: { inPatient: true, outPatient: true, dental: true, maternity: true },
     insuredGroups: [
-      { id: "1", planName: "Executive", numberOfMembers: 5 },
-      { id: "2", planName: "Staff", numberOfMembers: 25 },
+      { id: "1", planName: "IP 700", members: { ...defaultMembers, male0to59: 3, female0to59: 2 } },
+      { id: "2", planName: "IP 500", members: { ...defaultMembers, male0to59: 10, female0to59: 10, child0to59: 5 } },
     ],
     status: "review",
     createdAt: new Date("2024-01-18"),
@@ -51,7 +60,7 @@ const sampleQuotations: QuotationData[] = [
     startDate: new Date("2024-04-01"),
     endDate: new Date("2025-04-01"),
     benefits: { inPatient: true, outPatient: false, dental: false, maternity: false },
-    insuredGroups: [{ id: "1", planName: "All Staff", numberOfMembers: 50 }],
+    insuredGroups: [{ id: "1", planName: "IP 1000", members: { ...defaultMembers, male0to59: 25, female0to59: 20, child0to59: 5 } }],
     status: "draft",
     createdAt: new Date("2024-01-20"),
     updatedAt: new Date("2024-01-20"),
@@ -66,9 +75,9 @@ const sampleQuotations: QuotationData[] = [
     endDate: new Date("2025-01-15"),
     benefits: { inPatient: true, outPatient: true, dental: true, maternity: false },
     insuredGroups: [
-      { id: "1", planName: "Director", numberOfMembers: 3 },
-      { id: "2", planName: "Manager", numberOfMembers: 12 },
-      { id: "3", planName: "Staff", numberOfMembers: 85 },
+      { id: "1", planName: "IP 2000", members: { ...defaultMembers, male0to59: 2, female0to59: 1 } },
+      { id: "2", planName: "IP 1000", members: { ...defaultMembers, male0to59: 6, female0to59: 6 } },
+      { id: "3", planName: "IP 500", members: { ...defaultMembers, male0to59: 40, female0to59: 35, child0to59: 10 } },
     ],
     status: "locked",
     createdAt: new Date("2024-01-05"),
@@ -80,7 +89,10 @@ const sampleQuotations: QuotationData[] = [
 
 export function RecentQuotations() {
   const getTotalMembers = (groups: QuotationData["insuredGroups"]) => {
-    return groups.reduce((sum, g) => sum + g.numberOfMembers, 0);
+    return groups.reduce((sum, g) => {
+      const m = g.members;
+      return sum + m.male0to59 + m.female0to59 + m.child0to59 + m.male60to64 + m.female60to64;
+    }, 0);
   };
 
   const getBenefitsSummary = (benefits: QuotationData["benefits"]) => {
