@@ -70,7 +70,8 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["Lexend Deca", "system-ui", "sans-serif"],
+        heading: ["Poppins", "system-ui", "sans-serif"],
       },
       boxShadow: {
         card: "var(--shadow-card)",

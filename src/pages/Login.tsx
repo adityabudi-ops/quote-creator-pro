@@ -3,12 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { LogIn, Building2 } from "lucide-react";
+import { LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { toast } from "sonner";
+import premiroLogo from "@/assets/premiro-logo.jpg";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -42,13 +43,17 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-background to-muted p-4">
+      <Card className="w-full max-w-md shadow-elevated border-0">
         <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-            <Building2 className="w-8 h-8 text-primary" />
+          <div className="mx-auto">
+            <img 
+              src={premiroLogo} 
+              alt="Premiro Logo" 
+              className="h-16 w-auto object-contain mx-auto"
+            />
           </div>
-          <CardTitle className="text-2xl font-bold">SME Employee Benefits</CardTitle>
+          <CardTitle className="text-2xl font-heading font-bold text-primary">SME Employee Benefits</CardTitle>
           <CardDescription>Sign in to access the quotation system</CardDescription>
         </CardHeader>
         <CardContent>

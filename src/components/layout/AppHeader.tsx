@@ -1,4 +1,4 @@
-import { FileText, Bell, User } from "lucide-react";
+import { Bell, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -8,16 +8,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import premiroLogo from "@/assets/premiro-logo.jpg";
 
 export function AppHeader() {
   return (
     <header className="page-header h-16 px-6 flex items-center justify-between">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center">
-          <FileText className="w-6 h-6" />
-        </div>
+        <img 
+          src={premiroLogo} 
+          alt="Premiro Logo" 
+          className="h-10 w-auto object-contain"
+        />
         <div>
-          <h1 className="text-lg font-semibold">SME EB Quotation System</h1>
+          <h1 className="text-lg font-heading font-semibold">SME EB Quotation System</h1>
           <p className="text-xs text-primary-foreground/70">Employee Benefits</p>
         </div>
       </div>
