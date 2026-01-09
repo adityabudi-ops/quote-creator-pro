@@ -1,6 +1,16 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, FilePlus, FileSearch, Settings, History, CheckSquare } from "lucide-react";
+import { 
+  LayoutDashboard, 
+  FilePlus, 
+  FileSearch, 
+  Settings, 
+  History, 
+  CheckSquare,
+  Users,
+  Building2
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -11,11 +21,16 @@ const navItems = [
 ];
 
 const adminItems = [
+  { href: "/admin/users", label: "User Management", icon: Users },
+  { href: "/admin/insurance", label: "Insurance Companies", icon: Building2 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function AppSidebar() {
   const location = useLocation();
+  const { profile } = useAuth();
+
+  const isAdmin = profile?.role === "admin";
 
   return (
     <aside className="w-64 bg-sidebar text-sidebar-foreground min-h-[calc(100vh-4rem)] p-4">
@@ -49,7 +64,12 @@ export function AppSidebar() {
         <nav className="space-y-1">
           {adminItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location.pathname === item.href;
+            const isActive = location.pathname === item.href || location.pathname.startsWith(item.href);
+            
+            // Only show admin-specific items to admins
+            if ((item.href === "/admin/users" || item.href === "/admin/insurance") && !isAdmin) {
+              return null;
+            }
             
             return (
               <Link

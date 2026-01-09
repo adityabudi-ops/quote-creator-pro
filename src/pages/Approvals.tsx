@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { format } from "date-fns";
-import { CheckCircle, XCircle, Eye, Clock, User } from "lucide-react";
+import { CheckCircle, XCircle, Eye, Clock, User, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,92 +16,190 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { StatusBadge } from "@/components/quotation/StatusBadge";
+import type { Database } from "@/integrations/supabase/types";
 
-interface PendingQuotation {
-  id: string;
-  insuredName: string;
-  submittedBy: string;
-  submittedAt: Date;
-  totalMembers: number;
-  benefits: string[];
-  status: 'pending' | 'approved' | 'rejected';
-}
-
-// Mock data for pending approvals
-const mockPendingQuotations: PendingQuotation[] = [
-  {
-    id: "QT-2024-001",
-    insuredName: "Tech Solutions Pte Ltd",
-    submittedBy: "John Doe",
-    submittedAt: new Date(2024, 0, 15),
-    totalMembers: 150,
-    benefits: ["In-Patient", "Out-Patient", "Dental"],
-    status: "pending",
-  },
-  {
-    id: "QT-2024-002",
-    insuredName: "Global Traders Inc",
-    submittedBy: "Jane Smith",
-    submittedAt: new Date(2024, 0, 14),
-    totalMembers: 85,
-    benefits: ["In-Patient", "Maternity"],
-    status: "pending",
-  },
-  {
-    id: "QT-2024-003",
-    insuredName: "Manufacturing Co Ltd",
-    submittedBy: "Mike Johnson",
-    submittedAt: new Date(2024, 0, 13),
-    totalMembers: 320,
-    benefits: ["In-Patient", "Out-Patient", "Dental", "Maternity"],
-    status: "pending",
-  },
-];
+type QuotationStatus = Database["public"]["Enums"]["quotation_status"];
+type ApprovalRole = Database["public"]["Enums"]["approval_role"];
 
 export default function Approvals() {
-  const [quotations, setQuotations] = useState<PendingQuotation[]>(mockPendingQuotations);
+  const { profile } = useAuth();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedQuotation, setSelectedQuotation] = useState<PendingQuotation | null>(null);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [selectedQuotation, setSelectedQuotation] = useState<any>(null);
   const [rejectReason, setRejectReason] = useState("");
 
-  const filteredQuotations = quotations.filter(
-    (q) =>
-      q.status === "pending" &&
-      (q.insuredName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        q.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        q.submittedBy.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const userRole = profile?.role;
 
-  const handleApprove = (id: string) => {
-    setQuotations((prev) =>
-      prev.map((q) => (q.id === id ? { ...q, status: "approved" as const } : q))
-    );
-    toast.success(`Quotation ${id} has been approved`);
+  // Determine which status to filter based on user role
+  const getFilterStatus = (): QuotationStatus | null => {
+    if (userRole === "tenaga_pialang") return "pending_pialang";
+    if (userRole === "tenaga_ahli") return "pending_ahli";
+    if (userRole === "admin") return null; // Admin can see all pending
+    return null;
   };
 
-  const handleReject = () => {
-    if (selectedQuotation && rejectReason.trim()) {
-      setQuotations((prev) =>
-        prev.map((q) =>
-          q.id === selectedQuotation.id ? { ...q, status: "rejected" as const } : q
-        )
-      );
-      toast.success(`Quotation ${selectedQuotation.id} has been rejected`);
+  const { data: quotations, isLoading } = useQuery({
+    queryKey: ["pending_quotations", userRole],
+    queryFn: async () => {
+      let query = supabase
+        .from("quotations")
+        .select(`
+          *,
+          creator:profiles!quotations_created_by_fkey(full_name)
+        `)
+        .order("created_at", { ascending: false });
+      
+      const filterStatus = getFilterStatus();
+      if (filterStatus) {
+        query = query.eq("status", filterStatus);
+      } else if (userRole === "admin") {
+        query = query.in("status", ["pending_pialang", "pending_ahli"]);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async (quotation: any) => {
+      const currentStatus = quotation.status as QuotationStatus;
+      let newStatus: QuotationStatus;
+      let approvalRole: ApprovalRole;
+
+      if (currentStatus === "pending_pialang") {
+        newStatus = "pending_ahli";
+        approvalRole = "tenaga_pialang";
+      } else if (currentStatus === "pending_ahli") {
+        newStatus = "approved";
+        approvalRole = "tenaga_ahli";
+      } else {
+        throw new Error("Invalid status for approval");
+      }
+
+      // Update quotation status
+      const { error: updateError } = await supabase
+        .from("quotations")
+        .update({ status: newStatus })
+        .eq("id", quotation.id);
+      
+      if (updateError) throw updateError;
+
+      // Record approval history
+      const { error: historyError } = await supabase
+        .from("approval_history")
+        .insert({
+          quotation_id: quotation.id,
+          approval_role: approvalRole,
+          approved_by: profile?.id,
+          status: "approved",
+        });
+      
+      if (historyError) throw historyError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pending_quotations"] });
+      toast.success("Quotation approved");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async ({ quotation, reason }: { quotation: any; reason: string }) => {
+      const currentStatus = quotation.status as QuotationStatus;
+      let approvalRole: ApprovalRole;
+
+      if (currentStatus === "pending_pialang") {
+        approvalRole = "tenaga_pialang";
+      } else if (currentStatus === "pending_ahli") {
+        approvalRole = "tenaga_ahli";
+      } else {
+        throw new Error("Invalid status for rejection");
+      }
+
+      // Update quotation status
+      const { error: updateError } = await supabase
+        .from("quotations")
+        .update({ status: "rejected" as QuotationStatus })
+        .eq("id", quotation.id);
+      
+      if (updateError) throw updateError;
+
+      // Record approval history
+      const { error: historyError } = await supabase
+        .from("approval_history")
+        .insert({
+          quotation_id: quotation.id,
+          approval_role: approvalRole,
+          approved_by: profile?.id,
+          status: "rejected",
+          comments: reason,
+        });
+      
+      if (historyError) throw historyError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pending_quotations"] });
+      toast.success("Quotation rejected");
       setRejectDialogOpen(false);
-      setSelectedQuotation(null);
       setRejectReason("");
-    }
-  };
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
 
-  const openRejectDialog = (quotation: PendingQuotation) => {
+  const filteredQuotations = quotations?.filter(
+    (q) =>
+      q.insured_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      q.quotation_number.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
+
+  const openRejectDialog = (quotation: any) => {
     setSelectedQuotation(quotation);
     setRejectDialogOpen(true);
   };
 
-  const pendingCount = quotations.filter((q) => q.status === "pending").length;
-  const approvedCount = quotations.filter((q) => q.status === "approved").length;
-  const rejectedCount = quotations.filter((q) => q.status === "rejected").length;
+  const handleReject = () => {
+    if (selectedQuotation && rejectReason.trim()) {
+      rejectMutation.mutate({ quotation: selectedQuotation, reason: rejectReason });
+    }
+  };
+
+  const getTotalMembers = (groups: any[]) => {
+    if (!groups) return 0;
+    return groups.reduce((sum: number, g: any) => {
+      const m = g.members || {};
+      return sum + (m.male0to59 || 0) + (m.female0to59 || 0) + (m.child0to59 || 0) + (m.male60to64 || 0) + (m.female60to64 || 0);
+    }, 0);
+  };
+
+  const getBenefitsSummary = (benefits: any): string => {
+    if (!benefits) return "";
+    const active: string[] = [];
+    if (benefits.inPatient) active.push("In-Patient");
+    if (benefits.outPatient) active.push("Out-Patient");
+    if (benefits.dental) active.push("Dental");
+    if (benefits.maternity) active.push("Maternity");
+    return active.join(", ");
+  };
+
+  const canApprove = userRole === "tenaga_pialang" || userRole === "tenaga_ahli" || userRole === "admin";
+
+  const pendingPialangCount = quotations?.filter(q => q.status === "pending_pialang").length || 0;
+  const pendingAhliCount = quotations?.filter(q => q.status === "pending_ahli").length || 0;
+
+  if (isLoading) {
+    return <div className="p-6">Loading...</div>;
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -108,7 +207,7 @@ export default function Approvals() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Approval Queue</h1>
         <p className="text-muted-foreground">
-          Review and approve pending quotation requests
+          Multi-layer approval: Sales → Tenaga Pialang → Tenaga Ahli → Approved
         </p>
       </div>
 
@@ -121,8 +220,21 @@ export default function Approvals() {
                 <Clock className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{pendingCount}</p>
-                <p className="text-sm text-muted-foreground">Pending Review</p>
+                <p className="text-2xl font-bold">{pendingPialangCount}</p>
+                <p className="text-sm text-muted-foreground">Pending Pialang</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-orange-100 text-orange-700">
+                <ArrowRight className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{pendingAhliCount}</p>
+                <p className="text-sm text-muted-foreground">Pending Ahli</p>
               </div>
             </div>
           </CardContent>
@@ -134,21 +246,8 @@ export default function Approvals() {
                 <CheckCircle className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{approvedCount}</p>
-                <p className="text-sm text-muted-foreground">Approved Today</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-red-100 text-red-700">
-                <XCircle className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{rejectedCount}</p>
-                <p className="text-sm text-muted-foreground">Rejected Today</p>
+                <p className="text-2xl font-bold">{filteredQuotations.length}</p>
+                <p className="text-sm text-muted-foreground">In Your Queue</p>
               </div>
             </div>
           </CardContent>
@@ -158,7 +257,7 @@ export default function Approvals() {
       {/* Search */}
       <div className="flex gap-4">
         <Input
-          placeholder="Search by quotation ID, insured name, or submitter..."
+          placeholder="Search by quotation ID or insured name..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="max-w-md"
@@ -183,57 +282,62 @@ export default function Approvals() {
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
                   <div>
-                    <CardTitle className="text-lg">{quotation.insuredName}</CardTitle>
-                    <p className="text-sm text-muted-foreground">{quotation.id}</p>
+                    <CardTitle className="text-lg">{quotation.insured_name}</CardTitle>
+                    <p className="text-sm text-muted-foreground">{quotation.quotation_number}</p>
                   </div>
-                  <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                    Pending Review
-                  </Badge>
+                  <StatusBadge status={quotation.status} />
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-4">
                   <div className="flex items-center gap-2 text-sm">
                     <User className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">Submitted by:</span>
-                    <span>{quotation.submittedBy}</span>
+                    <span className="text-muted-foreground">Created by:</span>
+                    <span>{quotation.creator?.full_name}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <Clock className="w-4 h-4 text-muted-foreground" />
                     <span className="text-muted-foreground">Date:</span>
-                    <span>{format(quotation.submittedAt, "PP")}</span>
+                    <span>{format(new Date(quotation.created_at), "PP")}</span>
                   </div>
                   <div className="text-sm">
                     <span className="text-muted-foreground">Total Members:</span>{" "}
-                    <span className="font-medium">{quotation.totalMembers}</span>
+                    <span className="font-medium">{getTotalMembers(quotation.insured_groups as any[])}</span>
                   </div>
                   <div className="text-sm">
                     <span className="text-muted-foreground">Benefits:</span>{" "}
-                    <span>{quotation.benefits.join(", ")}</span>
+                    <span>{getBenefitsSummary(quotation.benefits) || "N/A"}</span>
                   </div>
                 </div>
                 <div className="flex gap-2 justify-end">
-                  <Button variant="outline" size="sm">
-                    <Eye className="w-4 h-4 mr-2" />
-                    View Details
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to={`/quotation/${quotation.id}`}>
+                      <Eye className="w-4 h-4 mr-2" />
+                      View Details
+                    </Link>
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    onClick={() => openRejectDialog(quotation)}
-                  >
-                    <XCircle className="w-4 h-4 mr-2" />
-                    Reject
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="bg-green-600 hover:bg-green-700"
-                    onClick={() => handleApprove(quotation.id)}
-                  >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Approve
-                  </Button>
+                  {canApprove && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => openRejectDialog(quotation)}
+                      >
+                        <XCircle className="w-4 h-4 mr-2" />
+                        Reject
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700"
+                        onClick={() => approveMutation.mutate(quotation)}
+                        disabled={approveMutation.isPending}
+                      >
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Approve
+                      </Button>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -247,7 +351,7 @@ export default function Approvals() {
           <DialogHeader>
             <DialogTitle>Reject Quotation</DialogTitle>
             <DialogDescription>
-              Please provide a reason for rejecting quotation {selectedQuotation?.id}
+              Please provide a reason for rejecting quotation {selectedQuotation?.quotation_number}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -265,7 +369,7 @@ export default function Approvals() {
             <Button
               variant="destructive"
               onClick={handleReject}
-              disabled={!rejectReason.trim()}
+              disabled={!rejectReason.trim() || rejectMutation.isPending}
             >
               Confirm Rejection
             </Button>
