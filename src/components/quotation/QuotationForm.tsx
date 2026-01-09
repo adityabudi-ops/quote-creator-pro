@@ -986,21 +986,128 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
 
           {/* Step 5: Group Structure - In-Patient controls rows, synced to other benefits */}
           {currentStep === 5 && (
-            <div className="space-y-6">
+            <div className="space-y-4 md:space-y-6">
               {/* In-Patient Section - Controls rows and member counts */}
               <Card className="form-section">
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="form-section-title mb-0 border-b-0 pb-0">
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <CardTitle className="form-section-title mb-0 border-b-0 pb-0 text-base md:text-lg">
                     {BENEFIT_LABELS.inPatient} Plans
-                    <span className="text-xs font-normal text-muted-foreground ml-2">(Controls group structure)</span>
+                    <span className="block sm:inline text-xs font-normal text-muted-foreground sm:ml-2">(Controls group structure)</span>
                   </CardTitle>
-                  <Button type="button" variant="outline" size="sm" onClick={addGroup}>
+                  <Button type="button" variant="outline" size="sm" onClick={addGroup} className="w-full sm:w-auto">
                     <Plus className="w-4 h-4 mr-2" />
                     Add Row
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  <div className="overflow-x-auto">
+                  {/* Mobile Card View */}
+                  <div className="block lg:hidden space-y-4">
+                    {(benefitGroups.inPatient || []).map((group, index) => (
+                      <div key={group.id} className="border rounded-lg p-4 space-y-4 bg-muted/20">
+                        <div className="flex items-center justify-between gap-2">
+                          <Select
+                            value={group.planName}
+                            onValueChange={(value) => updateGroup("inPatient", group.id, "planName", value)}
+                          >
+                            <SelectTrigger className="flex-1">
+                              <SelectValue placeholder="Select a plan" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover">
+                              {PLAN_OPTIONS.inPatient.map((plan) => (
+                                <SelectItem key={plan} value={plan}>{plan}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeGroup(index)}
+                            disabled={(benefitGroups.inPatient || []).length === 1}
+                            className="text-muted-foreground hover:text-destructive shrink-0"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        <div className="space-y-3">
+                          <p className="text-xs font-medium text-muted-foreground">Age 0-59</p>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <label className="text-xs text-muted-foreground">Male</label>
+                              <Input
+                                type="number"
+                                min="0"
+                                className="text-center"
+                                value={group.members.male0to59 || ""}
+                                onChange={(e) => updateGroup("inPatient", group.id, "male0to59", parseInt(e.target.value) || 0)}
+                                placeholder="0"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground">Female</label>
+                              <Input
+                                type="number"
+                                min="0"
+                                className="text-center"
+                                value={group.members.female0to59 || ""}
+                                onChange={(e) => updateGroup("inPatient", group.id, "female0to59", parseInt(e.target.value) || 0)}
+                                placeholder="0"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground">Child</label>
+                              <Input
+                                type="number"
+                                min="0"
+                                className="text-center"
+                                value={group.members.child0to59 || ""}
+                                onChange={(e) => updateGroup("inPatient", group.id, "child0to59", parseInt(e.target.value) || 0)}
+                                placeholder="0"
+                              />
+                            </div>
+                          </div>
+                          <p className="text-xs font-medium text-muted-foreground">Age 60-64</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-xs text-muted-foreground">Male</label>
+                              <Input
+                                type="number"
+                                min="0"
+                                className="text-center"
+                                value={group.members.male60to64 || ""}
+                                onChange={(e) => updateGroup("inPatient", group.id, "male60to64", parseInt(e.target.value) || 0)}
+                                placeholder="0"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground">Female</label>
+                              <Input
+                                type="number"
+                                min="0"
+                                className="text-center"
+                                value={group.members.female60to64 || ""}
+                                onChange={(e) => updateGroup("inPatient", group.id, "female60to64", parseInt(e.target.value) || 0)}
+                                placeholder="0"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex justify-between items-center pt-2 border-t">
+                            <span className="text-sm font-medium">Total Members</span>
+                            <span className="text-lg font-bold text-primary">{getGroupTotal(group)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium">Grand Total</span>
+                        <span className="font-bold">{getTotalMembers("inPatient")} members</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Desktop Table View */}
+                  <div className="hidden lg:block overflow-x-auto">
                     <table className="data-table">
                       <thead>
                         <tr>
@@ -1031,9 +1138,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                                 </SelectTrigger>
                                 <SelectContent className="bg-popover">
                                   {PLAN_OPTIONS.inPatient.map((plan) => (
-                                    <SelectItem key={plan} value={plan}>
-                                      {plan}
-                                    </SelectItem>
+                                    <SelectItem key={plan} value={plan}>{plan}</SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
@@ -1088,9 +1193,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                                 placeholder="0"
                               />
                             </td>
-                            <td className="text-center font-medium">
-                              {getGroupTotal(group)}
-                            </td>
+                            <td className="text-center font-medium">{getGroupTotal(group)}</td>
                             <td>
                               <Button
                                 type="button"
@@ -1135,19 +1238,125 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                 
                 return (
                   <Card key={benefitType} className="form-section">
-                    <CardHeader className="flex flex-row items-center justify-between">
-                      <CardTitle className="form-section-title mb-0 border-b-0 pb-0">
+                    <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <CardTitle className="form-section-title mb-0 border-b-0 pb-0 text-base md:text-lg">
                         {BENEFIT_LABELS[benefitType]} Plans
                         <span className={cn(
-                          "text-xs font-normal ml-2",
+                          "block sm:inline text-xs font-normal sm:ml-2",
                           anyMismatch ? "text-destructive" : "text-muted-foreground"
                         )}>
-                          {anyMismatch ? "(Totals must match In-Patient per column)" : "(Totals match In-Patient ✓)"}
+                          {anyMismatch ? "(Must match In-Patient)" : "(Match ✓)"}
                         </span>
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="overflow-x-auto">
+                      {/* Mobile Card View */}
+                      <div className="block lg:hidden space-y-4">
+                        {(benefitGroups[benefitType] || []).map((group) => (
+                          <div key={group.id} className={cn(
+                            "border rounded-lg p-4 space-y-4",
+                            anyMismatch ? "border-destructive/50 bg-destructive/5" : "bg-muted/20"
+                          )}>
+                            <Select
+                              value={group.planName}
+                              onValueChange={(value) => updateGroup(benefitType, group.id, "planName", value)}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select a plan" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-popover">
+                                {PLAN_OPTIONS[benefitType as keyof typeof PLAN_OPTIONS]?.map((plan) => (
+                                  <SelectItem key={plan} value={plan}>{plan}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <div className="space-y-3">
+                              <p className="text-xs font-medium text-muted-foreground">Age 0-59</p>
+                              <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                  <label className={cn("text-xs", hasMismatch("male0to59") ? "text-destructive" : "text-muted-foreground")}>Male</label>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    className={cn("text-center", hasMismatch("male0to59") && "border-destructive")}
+                                    value={group.members.male0to59 || ""}
+                                    onChange={(e) => updateGroup(benefitType, group.id, "male0to59", parseInt(e.target.value) || 0)}
+                                    placeholder="0"
+                                  />
+                                </div>
+                                <div>
+                                  <label className={cn("text-xs", hasMismatch("female0to59") ? "text-destructive" : "text-muted-foreground")}>Female</label>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    className={cn("text-center", hasMismatch("female0to59") && "border-destructive")}
+                                    value={group.members.female0to59 || ""}
+                                    onChange={(e) => updateGroup(benefitType, group.id, "female0to59", parseInt(e.target.value) || 0)}
+                                    placeholder="0"
+                                  />
+                                </div>
+                                <div>
+                                  <label className={cn("text-xs", hasMismatch("child0to59") ? "text-destructive" : "text-muted-foreground")}>Child</label>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    className={cn("text-center", hasMismatch("child0to59") && "border-destructive")}
+                                    value={group.members.child0to59 || ""}
+                                    onChange={(e) => updateGroup(benefitType, group.id, "child0to59", parseInt(e.target.value) || 0)}
+                                    placeholder="0"
+                                  />
+                                </div>
+                              </div>
+                              <p className="text-xs font-medium text-muted-foreground">Age 60-64</p>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className={cn("text-xs", hasMismatch("male60to64") ? "text-destructive" : "text-muted-foreground")}>Male</label>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    className={cn("text-center", hasMismatch("male60to64") && "border-destructive")}
+                                    value={group.members.male60to64 || ""}
+                                    onChange={(e) => updateGroup(benefitType, group.id, "male60to64", parseInt(e.target.value) || 0)}
+                                    placeholder="0"
+                                  />
+                                </div>
+                                <div>
+                                  <label className={cn("text-xs", hasMismatch("female60to64") ? "text-destructive" : "text-muted-foreground")}>Female</label>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    className={cn("text-center", hasMismatch("female60to64") && "border-destructive")}
+                                    value={group.members.female60to64 || ""}
+                                    onChange={(e) => updateGroup(benefitType, group.id, "female60to64", parseInt(e.target.value) || 0)}
+                                    placeholder="0"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex justify-between items-center pt-2 border-t">
+                                <span className="text-sm font-medium">Total Members</span>
+                                <span className={cn(
+                                  "text-lg font-bold",
+                                  anyMismatch ? "text-destructive" : "text-primary"
+                                )}>{getGroupTotal(group)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        <div className={cn(
+                          "p-3 rounded-lg",
+                          anyMismatch ? "bg-destructive/10" : "bg-muted/50"
+                        )}>
+                          <div className="flex justify-between text-sm">
+                            <span className="font-medium">Grand Total</span>
+                            <span className={cn("font-bold", anyMismatch && "text-destructive")}>
+                              {benefitTotal} / {inPatientTotal} members
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Desktop Table View */}
+                      <div className="hidden lg:block overflow-x-auto">
                         <table className="data-table">
                           <thead>
                             <tr>
@@ -1177,9 +1386,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                                     </SelectTrigger>
                                     <SelectContent className="bg-popover">
                                       {PLAN_OPTIONS[benefitType as keyof typeof PLAN_OPTIONS]?.map((plan) => (
-                                        <SelectItem key={plan} value={plan}>
-                                          {plan}
-                                        </SelectItem>
+                                        <SelectItem key={plan} value={plan}>{plan}</SelectItem>
                                       ))}
                                     </SelectContent>
                                   </Select>
