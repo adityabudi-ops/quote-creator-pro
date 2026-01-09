@@ -7,6 +7,8 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import Index from "./pages/Index";
 import NewQuotation from "./pages/NewQuotation";
 import AllQuotations from "./pages/AllQuotations";
+import QuotationDetails from "./pages/QuotationDetails";
+import EditQuotation from "./pages/EditQuotation";
 import AuditLog from "./pages/AuditLog";
 import Login from "./pages/Login";
 import Approvals from "./pages/Approvals";
@@ -29,6 +31,8 @@ const App = () => (
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/quotation/new" element={<NewQuotation />} />
+                  <Route path="/quotation/:id" element={<QuotationDetails />} />
+                  <Route path="/quotation/edit/:id" element={<EditQuotation />} />
                   <Route path="/quotations" element={<AllQuotations />} />
                   <Route path="/approvals" element={<Approvals />} />
                   <Route path="/audit-log" element={<AuditLog />} />

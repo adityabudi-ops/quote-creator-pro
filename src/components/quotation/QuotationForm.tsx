@@ -16,6 +16,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import type { QuotationData } from "@/types/quotation";
 
 // Plan options per benefit type
 const PLAN_OPTIONS = {
@@ -81,25 +82,77 @@ const BENEFIT_LABELS: Record<string, string> = {
   maternity: "Maternity",
 };
 
-export function QuotationForm() {
+interface QuotationFormProps {
+  mode?: "create" | "edit";
+  initialData?: QuotationData;
+  onCancel?: () => void;
+}
+
+export function QuotationForm({ mode = "create", initialData, onCancel }: QuotationFormProps) {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
-  const [benefitGroups, setBenefitGroups] = useState<Record<string, BenefitGroup[]>>({
-    inPatient: [{ id: "ip-1", benefitType: "inPatient", planName: "", numberOfMembers: 0 }],
-  });
+  
+  // Initialize benefit groups from initial data if in edit mode
+  const getInitialBenefitGroups = (): Record<string, BenefitGroup[]> => {
+    if (initialData) {
+      const groups: Record<string, BenefitGroup[]> = {};
+      if (initialData.benefits.inPatient) {
+        groups.inPatient = initialData.insuredGroups
+          .filter(g => g.planName.startsWith("IP"))
+          .map(g => ({ ...g, benefitType: "inPatient" as const }));
+        if (groups.inPatient.length === 0) {
+          groups.inPatient = [{ id: "ip-1", benefitType: "inPatient", planName: "", numberOfMembers: 0 }];
+        }
+      }
+      if (initialData.benefits.outPatient) {
+        groups.outPatient = initialData.insuredGroups
+          .filter(g => g.planName.startsWith("OP"))
+          .map(g => ({ ...g, benefitType: "outPatient" as const }));
+        if (groups.outPatient.length === 0) {
+          groups.outPatient = [{ id: "op-1", benefitType: "outPatient", planName: "", numberOfMembers: 0 }];
+        }
+      }
+      if (initialData.benefits.dental) {
+        groups.dental = initialData.insuredGroups
+          .filter(g => g.planName.startsWith("DE"))
+          .map(g => ({ ...g, benefitType: "dental" as const }));
+        if (groups.dental.length === 0) {
+          groups.dental = [{ id: "de-1", benefitType: "dental", planName: "", numberOfMembers: 0 }];
+        }
+      }
+      if (initialData.benefits.maternity) {
+        groups.maternity = initialData.insuredGroups
+          .filter(g => g.planName.startsWith("MA"))
+          .map(g => ({ ...g, benefitType: "maternity" as const }));
+        if (groups.maternity.length === 0) {
+          groups.maternity = [{ id: "ma-1", benefitType: "maternity", planName: "", numberOfMembers: 0 }];
+        }
+      }
+      // If no groups found, default to inPatient
+      if (Object.keys(groups).length === 0) {
+        groups.inPatient = [{ id: "ip-1", benefitType: "inPatient", planName: "", numberOfMembers: 0 }];
+      }
+      return groups;
+    }
+    return {
+      inPatient: [{ id: "ip-1", benefitType: "inPatient", planName: "", numberOfMembers: 0 }],
+    };
+  };
+
+  const [benefitGroups, setBenefitGroups] = useState<Record<string, BenefitGroup[]>>(getInitialBenefitGroups);
   const [groupErrors, setGroupErrors] = useState<string[]>([]);
 
   const form = useForm<QuotationFormData>({
     resolver: zodResolver(quotationSchema),
     defaultValues: {
-      insuredName: "",
-      insuredAddress: "",
-      startDate: new Date(),
-      endDate: subDays(addMonths(new Date(), 12), 1),
-      inPatient: true, // Always true by default (mandatory)
-      outPatient: false,
-      dental: false,
-      maternity: false,
+      insuredName: initialData?.insuredName || "",
+      insuredAddress: initialData?.insuredAddress || "",
+      startDate: initialData?.startDate || new Date(),
+      endDate: initialData?.endDate || subDays(addMonths(new Date(), 12), 1),
+      inPatient: initialData?.benefits.inPatient ?? true,
+      outPatient: initialData?.benefits.outPatient ?? false,
+      dental: initialData?.benefits.dental ?? false,
+      maternity: initialData?.benefits.maternity ?? false,
     },
   });
 
@@ -231,20 +284,32 @@ export function QuotationForm() {
       return;
     }
 
-    const quotation = {
-      ...data,
-      benefitGroups,
-      id: Date.now().toString(),
-      status: "draft" as const,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      createdBy: "John Doe",
-      version: 1,
-    };
-
-    console.log("Quotation submitted:", quotation);
-    toast.success("Quotation created successfully!");
-    navigate("/");
+    if (mode === "edit" && initialData) {
+      const quotation = {
+        ...initialData,
+        ...data,
+        benefitGroups,
+        updatedAt: new Date(),
+        version: initialData.version + 1,
+      };
+      console.log("Quotation updated:", quotation);
+      toast.success("Quotation updated successfully!");
+      navigate(`/quotation/${initialData.id}`);
+    } else {
+      const quotation = {
+        ...data,
+        benefitGroups,
+        id: `Q-${new Date().getFullYear()}-${String(Date.now()).slice(-3)}`,
+        status: "draft" as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: "John Doe",
+        version: 1,
+      };
+      console.log("Quotation submitted:", quotation);
+      toast.success("Quotation created successfully!");
+      navigate("/");
+    }
   };
 
   const getTotalMembers = (benefitType: string) => {
@@ -678,14 +743,21 @@ export function QuotationForm() {
 
           {/* Navigation */}
           <div className="flex justify-between mt-6">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={prevStep}
-              disabled={currentStep === 1}
-            >
-              Previous
-            </Button>
+            <div className="flex gap-2">
+              {onCancel && (
+                <Button type="button" variant="ghost" onClick={onCancel}>
+                  Cancel
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={prevStep}
+                disabled={currentStep === 1}
+              >
+                Previous
+              </Button>
+            </div>
             <div className="flex gap-2">
               {currentStep < 5 ? (
                 <Button type="button" onClick={nextStep}>
@@ -699,7 +771,7 @@ export function QuotationForm() {
                   </Button>
                   <Button type="submit">
                     <Save className="w-4 h-4 mr-2" />
-                    Save Quotation
+                    {mode === "edit" ? "Update Quotation" : "Save Quotation"}
                   </Button>
                 </>
               )}
