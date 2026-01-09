@@ -681,25 +681,34 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                 <CardTitle className="form-section-title">Benefits Selection</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid gap-4 sm:grid-cols-2">
+                <p className="text-sm text-muted-foreground">
+                  Select the coverage benefits for this quotation. In-Patient is mandatory.
+                </p>
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
                   <FormField
                     control={form.control}
                     name="inPatient"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-lg border border-primary bg-primary/5 p-4">
+                      <FormItem className="relative flex flex-row items-center gap-4 rounded-xl border-2 border-primary bg-primary/5 p-5 shadow-sm">
                         <FormControl>
                           <Checkbox
                             checked={field.value}
                             onCheckedChange={field.onChange}
-                            disabled={true} // Always mandatory
+                            disabled={true}
+                            className="h-5 w-5"
                           />
                         </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel className="cursor-pointer">
-                            In-Patient <span className="text-xs text-primary font-normal">(Mandatory)</span>
+                        <div className="flex-1 min-w-0">
+                          <FormLabel className="cursor-pointer text-base font-semibold">
+                            In-Patient
                           </FormLabel>
-                          <FormDescription>Hospital admission coverage</FormDescription>
+                          <FormDescription className="text-xs mt-1">
+                            Hospital admission coverage
+                          </FormDescription>
                         </div>
+                        <span className="absolute top-2 right-2 text-[10px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                          Mandatory
+                        </span>
                       </FormItem>
                     )}
                   />
@@ -707,21 +716,27 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                     control={form.control}
                     name="outPatient"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-lg border p-4">
+                      <FormItem className={cn(
+                        "flex flex-row items-center gap-4 rounded-xl border-2 p-5 transition-all",
+                        field.value ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/50"
+                      )}>
                         <FormControl>
                           <Checkbox
                             checked={field.value}
                             onCheckedChange={field.onChange}
                             disabled={!watchInPatient}
+                            className="h-5 w-5"
                           />
                         </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel className={cn("cursor-pointer", !watchInPatient && "text-muted-foreground")}>
+                        <div className="flex-1 min-w-0">
+                          <FormLabel className={cn(
+                            "cursor-pointer text-base font-semibold",
+                            !watchInPatient && "text-muted-foreground"
+                          )}>
                             Out-Patient
                           </FormLabel>
-                          <FormDescription>
+                          <FormDescription className="text-xs mt-1">
                             Clinic visits coverage
-                            {!watchInPatient && " (requires In-Patient)"}
                           </FormDescription>
                         </div>
                       </FormItem>
@@ -731,21 +746,27 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                     control={form.control}
                     name="dental"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-lg border p-4">
+                      <FormItem className={cn(
+                        "flex flex-row items-center gap-4 rounded-xl border-2 p-5 transition-all",
+                        field.value ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/50"
+                      )}>
                         <FormControl>
                           <Checkbox
                             checked={field.value}
                             onCheckedChange={field.onChange}
                             disabled={!watchInPatient}
+                            className="h-5 w-5"
                           />
                         </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel className={cn("cursor-pointer", !watchInPatient && "text-muted-foreground")}>
+                        <div className="flex-1 min-w-0">
+                          <FormLabel className={cn(
+                            "cursor-pointer text-base font-semibold",
+                            !watchInPatient && "text-muted-foreground"
+                          )}>
                             Dental
                           </FormLabel>
-                          <FormDescription>
+                          <FormDescription className="text-xs mt-1">
                             Dental care coverage
-                            {!watchInPatient && " (requires In-Patient)"}
                           </FormDescription>
                         </div>
                       </FormItem>
@@ -755,21 +776,30 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                     control={form.control}
                     name="maternity"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-lg border p-4">
+                      <FormItem className={cn(
+                        "flex flex-row items-center gap-4 rounded-xl border-2 p-5 transition-all",
+                        field.value ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/50"
+                      )}>
                         <FormControl>
                           <Checkbox
                             checked={field.value}
                             onCheckedChange={field.onChange}
                             disabled={!watchInPatient}
+                            className="h-5 w-5"
                           />
                         </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel className={cn("cursor-pointer", !watchInPatient && "text-muted-foreground")}>
+                        <div className="flex-1 min-w-0">
+                          <FormLabel className={cn(
+                            "cursor-pointer text-base font-semibold",
+                            !watchInPatient && "text-muted-foreground"
+                          )}>
                             Maternity
                           </FormLabel>
-                          <FormDescription>
+                          <FormDescription className="text-xs mt-1">
                             Pregnancy & childbirth coverage
-                            {!watchInPatient && " (requires In-Patient)"}
+                            <span className="block text-[10px] text-muted-foreground/80 mt-0.5">
+                              Min. 5 females (age 0-59) required
+                            </span>
                           </FormDescription>
                         </div>
                       </FormItem>
