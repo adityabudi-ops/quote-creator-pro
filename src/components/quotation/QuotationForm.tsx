@@ -16,7 +16,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import type { QuotationData } from "@/types/quotation";
+import type { QuotationData, BenefitsOption } from "@/types/quotation";
+import { BENEFITS_OPTIONS_LABELS } from "@/types/quotation";
 
 // Plan options per benefit type
 const PLAN_OPTIONS = {
@@ -61,11 +62,21 @@ const DEFAULT_MEMBERS: MemberBreakdown = {
   female60to64: 0,
 };
 
+const BENEFITS_OPTIONS: BenefitsOption[] = [
+  'inner_limit_all',
+  'inner_limit_ip_ma_as_charge_op_de',
+  'semi_as_charge_ip_inner_limit_ma_as_charge_op_de',
+  'as_charge_ip_op_de_inner_limit_ma',
+];
+
 const quotationSchema = z.object({
   insuredName: z.string().min(1, "Insured name is required").max(200, "Name too long"),
   insuredAddress: z.string().min(1, "Address is required").max(500, "Address too long"),
   startDate: z.date({ required_error: "Start date is required" }),
   endDate: z.date({ required_error: "End date is required" }),
+  benefitsOption: z.enum(['inner_limit_all', 'inner_limit_ip_ma_as_charge_op_de', 'semi_as_charge_ip_inner_limit_ma_as_charge_op_de', 'as_charge_ip_op_de_inner_limit_ma'] as const, {
+    required_error: "Benefits option is required",
+  }),
   inPatient: z.boolean(),
   outPatient: z.boolean(),
   dental: z.boolean(),
@@ -165,6 +176,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
       insuredAddress: initialData?.insuredAddress || "",
       startDate: initialData?.startDate || new Date(),
       endDate: initialData?.endDate || subDays(addMonths(new Date(), 12), 1),
+      benefitsOption: initialData?.benefitsOption || "inner_limit_all",
       inPatient: initialData?.benefits.inPatient ?? true,
       outPatient: initialData?.benefits.outPatient ?? false,
       dental: initialData?.benefits.dental ?? false,
@@ -186,7 +198,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
     }
   }, [watchStartDate, form]);
 
-  // Update benefit groups when benefits selection changes
+  // Sync benefit groups: when In-Patient changes, sync rows to other selected benefits
   useEffect(() => {
     const selectedBenefits = {
       inPatient: watchInPatient,
@@ -196,14 +208,28 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
     };
 
     setBenefitGroups((prev) => {
+      const inPatientGroups = prev.inPatient || [
+        { id: "ip-1", benefitType: "inPatient" as const, planName: "", members: { ...DEFAULT_MEMBERS } }
+      ];
+      
       const newGroups: Record<string, BenefitGroup[]> = {};
 
       Object.entries(selectedBenefits).forEach(([benefit, isSelected]) => {
         if (isSelected) {
-          // Keep existing groups or create new default
-          newGroups[benefit] = prev[benefit] || [
-            { id: `${benefit}-1`, benefitType: benefit as BenefitGroup['benefitType'], planName: "", members: { ...DEFAULT_MEMBERS } }
-          ];
+          if (benefit === 'inPatient') {
+            newGroups.inPatient = inPatientGroups;
+          } else {
+            // Sync rows from In-Patient: same number of rows with same member counts
+            newGroups[benefit] = inPatientGroups.map((ipGroup, index) => {
+              const existingGroup = prev[benefit]?.[index];
+              return {
+                id: existingGroup?.id || `${benefit}-${index + 1}`,
+                benefitType: benefit as BenefitGroup['benefitType'],
+                planName: existingGroup?.planName || "",
+                members: { ...ipGroup.members }, // Copy member counts from In-Patient
+              };
+            });
+          }
         }
       });
 
@@ -211,26 +237,44 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
     });
   }, [watchInPatient, watchOutPatient, watchDental, watchMaternity]);
 
-  const addGroup = (benefitType: string) => {
-    setBenefitGroups((prev) => ({
-      ...prev,
-      [benefitType]: [
-        ...(prev[benefitType] || []),
-        { id: `${benefitType}-${Date.now()}`, benefitType: benefitType as BenefitGroup['benefitType'], planName: "", members: { ...DEFAULT_MEMBERS } },
-      ],
-    }));
+  // When In-Patient group structure changes, sync to other benefits
+  const addGroup = () => {
+    setBenefitGroups((prev) => {
+      const newInPatientGroups = [
+        ...(prev.inPatient || []),
+        { id: `inPatient-${Date.now()}`, benefitType: "inPatient" as const, planName: "", members: { ...DEFAULT_MEMBERS } },
+      ];
+      
+      const newGroups: Record<string, BenefitGroup[]> = { inPatient: newInPatientGroups };
+      
+      // Sync new row to other selected benefits
+      Object.keys(prev).forEach((benefit) => {
+        if (benefit !== 'inPatient') {
+          newGroups[benefit] = newInPatientGroups.map((ipGroup, index) => ({
+            id: prev[benefit]?.[index]?.id || `${benefit}-${Date.now()}-${index}`,
+            benefitType: benefit as BenefitGroup['benefitType'],
+            planName: prev[benefit]?.[index]?.planName || "",
+            members: { ...ipGroup.members },
+          }));
+        }
+      });
+      
+      return newGroups;
+    });
   };
 
-  const removeGroup = (benefitType: string, id: string) => {
+  const removeGroup = (index: number) => {
     setBenefitGroups((prev) => {
-      const groups = prev[benefitType] || [];
-      if (groups.length > 1) {
-        return {
-          ...prev,
-          [benefitType]: groups.filter((g) => g.id !== id),
-        };
-      }
-      return prev;
+      const inPatientGroups = prev.inPatient || [];
+      if (inPatientGroups.length <= 1) return prev;
+      
+      const newGroups: Record<string, BenefitGroup[]> = {};
+      
+      Object.entries(prev).forEach(([benefit, groups]) => {
+        newGroups[benefit] = groups.filter((_, i) => i !== index);
+      });
+      
+      return newGroups;
     });
   };
 
@@ -282,7 +326,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
     if (currentStep === 1) {
       isValid = await form.trigger(["insuredName", "insuredAddress"]);
     } else if (currentStep === 2) {
-      isValid = await form.trigger(["startDate", "endDate"]);
+      isValid = await form.trigger(["startDate", "endDate", "benefitsOption"]);
     } else if (currentStep === 3) {
       isValid = await form.trigger(["inPatient", "outPatient", "dental", "maternity"]);
     } else if (currentStep === 4) {
@@ -428,11 +472,11 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
             </Card>
           )}
 
-          {/* Step 2: Policy Period */}
+          {/* Step 2: Policy Period & Benefits Option */}
           {currentStep === 2 && (
             <Card className="form-section">
               <CardHeader>
-                <CardTitle className="form-section-title">Policy Period</CardTitle>
+                <CardTitle className="form-section-title">Policy Period & Benefits Option</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid gap-6 sm:grid-cols-2">
@@ -493,6 +537,32 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                     )}
                   />
                 </div>
+
+                <FormField
+                  control={form.control}
+                  name="benefitsOption"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Benefits Option *</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a benefits option" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="bg-popover">
+                          {BENEFITS_OPTIONS.map((option) => (
+                            <SelectItem key={option} value={option}>
+                              {BENEFITS_OPTIONS_LABELS[option]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>Determines coverage limits and charging method</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </CardContent>
             </Card>
           )}
@@ -606,19 +676,149 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
             </Card>
           )}
 
-          {/* Step 4: Group Structure - Dynamic based on selected benefits */}
+          {/* Step 4: Group Structure - In-Patient controls rows, synced to other benefits */}
           {currentStep === 4 && (
             <div className="space-y-6">
-              {selectedBenefits.map((benefitType) => (
+              {/* In-Patient Section - Controls rows and member counts */}
+              <Card className="form-section">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="form-section-title mb-0 border-b-0 pb-0">
+                    {BENEFIT_LABELS.inPatient} Plans
+                    <span className="text-xs font-normal text-muted-foreground ml-2">(Controls group structure)</span>
+                  </CardTitle>
+                  <Button type="button" variant="outline" size="sm" onClick={addGroup}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Row
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th rowSpan={2} className="align-bottom">Plan Name</th>
+                          <th colSpan={3} className="text-center border-b-0">Age 0-59</th>
+                          <th colSpan={2} className="text-center border-b-0">Age 60-64</th>
+                          <th rowSpan={2} className="align-bottom text-center">Total</th>
+                          <th rowSpan={2}></th>
+                        </tr>
+                        <tr>
+                          <th className="text-center">Male</th>
+                          <th className="text-center">Female</th>
+                          <th className="text-center">Child</th>
+                          <th className="text-center">Male</th>
+                          <th className="text-center">Female</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(benefitGroups.inPatient || []).map((group, index) => (
+                          <tr key={group.id}>
+                            <td>
+                              <Select
+                                value={group.planName}
+                                onValueChange={(value) => updateGroup("inPatient", group.id, "planName", value)}
+                              >
+                                <SelectTrigger className="w-full min-w-[120px]">
+                                  <SelectValue placeholder="Select a plan" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-popover">
+                                  {PLAN_OPTIONS.inPatient.map((plan) => (
+                                    <SelectItem key={plan} value={plan}>
+                                      {plan}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </td>
+                            <td>
+                              <Input
+                                type="number"
+                                min="0"
+                                className="w-16 text-center"
+                                value={group.members.male0to59 || ""}
+                                onChange={(e) => updateGroup("inPatient", group.id, "male0to59", parseInt(e.target.value) || 0)}
+                                placeholder="0"
+                              />
+                            </td>
+                            <td>
+                              <Input
+                                type="number"
+                                min="0"
+                                className="w-16 text-center"
+                                value={group.members.female0to59 || ""}
+                                onChange={(e) => updateGroup("inPatient", group.id, "female0to59", parseInt(e.target.value) || 0)}
+                                placeholder="0"
+                              />
+                            </td>
+                            <td>
+                              <Input
+                                type="number"
+                                min="0"
+                                className="w-16 text-center"
+                                value={group.members.child0to59 || ""}
+                                onChange={(e) => updateGroup("inPatient", group.id, "child0to59", parseInt(e.target.value) || 0)}
+                                placeholder="0"
+                              />
+                            </td>
+                            <td>
+                              <Input
+                                type="number"
+                                min="0"
+                                className="w-16 text-center"
+                                value={group.members.male60to64 || ""}
+                                onChange={(e) => updateGroup("inPatient", group.id, "male60to64", parseInt(e.target.value) || 0)}
+                                placeholder="0"
+                              />
+                            </td>
+                            <td>
+                              <Input
+                                type="number"
+                                min="0"
+                                className="w-16 text-center"
+                                value={group.members.female60to64 || ""}
+                                onChange={(e) => updateGroup("inPatient", group.id, "female60to64", parseInt(e.target.value) || 0)}
+                                placeholder="0"
+                              />
+                            </td>
+                            <td className="text-center font-medium">
+                              {getGroupTotal(group)}
+                            </td>
+                            <td>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeGroup(index)}
+                                disabled={(benefitGroups.inPatient || []).length === 1}
+                                className="text-muted-foreground hover:text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr>
+                          <td className="font-medium">Total</td>
+                          <td colSpan={5}></td>
+                          <td className="text-center font-medium">{getTotalMembers("inPatient")}</td>
+                          <td></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Other Benefits - Plan selection only, members synced from In-Patient */}
+              {selectedBenefits.filter(b => b !== 'inPatient').map((benefitType) => (
                 <Card key={benefitType} className="form-section">
-                  <CardHeader className="flex flex-row items-center justify-between">
+                  <CardHeader>
                     <CardTitle className="form-section-title mb-0 border-b-0 pb-0">
                       {BENEFIT_LABELS[benefitType]} Plans
+                      <span className="text-xs font-normal text-muted-foreground ml-2">(Members synced from In-Patient)</span>
                     </CardTitle>
-                    <Button type="button" variant="outline" size="sm" onClick={() => addGroup(benefitType)}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Plan
-                    </Button>
                   </CardHeader>
                   <CardContent>
                     <div className="overflow-x-auto">
@@ -629,7 +829,6 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                             <th colSpan={3} className="text-center border-b-0">Age 0-59</th>
                             <th colSpan={2} className="text-center border-b-0">Age 60-64</th>
                             <th rowSpan={2} className="align-bottom text-center">Total</th>
-                            <th rowSpan={2}></th>
                           </tr>
                           <tr>
                             <th className="text-center">Male</th>
@@ -659,71 +858,12 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                                   </SelectContent>
                                 </Select>
                               </td>
-                              <td>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  className="w-16 text-center"
-                                  value={group.members.male0to59 || ""}
-                                  onChange={(e) => updateGroup(benefitType, group.id, "male0to59", parseInt(e.target.value) || 0)}
-                                  placeholder="0"
-                                />
-                              </td>
-                              <td>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  className="w-16 text-center"
-                                  value={group.members.female0to59 || ""}
-                                  onChange={(e) => updateGroup(benefitType, group.id, "female0to59", parseInt(e.target.value) || 0)}
-                                  placeholder="0"
-                                />
-                              </td>
-                              <td>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  className="w-16 text-center"
-                                  value={group.members.child0to59 || ""}
-                                  onChange={(e) => updateGroup(benefitType, group.id, "child0to59", parseInt(e.target.value) || 0)}
-                                  placeholder="0"
-                                />
-                              </td>
-                              <td>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  className="w-16 text-center"
-                                  value={group.members.male60to64 || ""}
-                                  onChange={(e) => updateGroup(benefitType, group.id, "male60to64", parseInt(e.target.value) || 0)}
-                                  placeholder="0"
-                                />
-                              </td>
-                              <td>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  className="w-16 text-center"
-                                  value={group.members.female60to64 || ""}
-                                  onChange={(e) => updateGroup(benefitType, group.id, "female60to64", parseInt(e.target.value) || 0)}
-                                  placeholder="0"
-                                />
-                              </td>
-                              <td className="text-center font-medium">
-                                {getGroupTotal(group)}
-                              </td>
-                              <td>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => removeGroup(benefitType, group.id)}
-                                  disabled={(benefitGroups[benefitType] || []).length === 1}
-                                  className="text-muted-foreground hover:text-destructive"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </td>
+                              <td className="text-center text-muted-foreground">{group.members.male0to59}</td>
+                              <td className="text-center text-muted-foreground">{group.members.female0to59}</td>
+                              <td className="text-center text-muted-foreground">{group.members.child0to59}</td>
+                              <td className="text-center text-muted-foreground">{group.members.male60to64}</td>
+                              <td className="text-center text-muted-foreground">{group.members.female60to64}</td>
+                              <td className="text-center font-medium">{getGroupTotal(group)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -732,7 +872,6 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                             <td className="font-medium">Total</td>
                             <td colSpan={5}></td>
                             <td className="text-center font-medium">{getTotalMembers(benefitType)}</td>
-                            <td></td>
                           </tr>
                         </tfoot>
                       </table>

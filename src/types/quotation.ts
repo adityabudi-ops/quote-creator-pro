@@ -16,6 +16,19 @@ export interface InsuredGroup {
   members: MemberBreakdown;
 }
 
+export type BenefitsOption = 
+  | 'inner_limit_all'
+  | 'inner_limit_ip_ma_as_charge_op_de'
+  | 'semi_as_charge_ip_inner_limit_ma_as_charge_op_de'
+  | 'as_charge_ip_op_de_inner_limit_ma';
+
+export const BENEFITS_OPTIONS_LABELS: Record<BenefitsOption, string> = {
+  'inner_limit_all': 'Inner Limit For All Benefits',
+  'inner_limit_ip_ma_as_charge_op_de': 'Inner Limit for In-Patients and Maternity, Outpatient and Dentals As Charge',
+  'semi_as_charge_ip_inner_limit_ma_as_charge_op_de': 'Semi As Charge for In-Patients, Maternity Inner Limit, Outpatient and Dentals As Charge',
+  'as_charge_ip_op_de_inner_limit_ma': 'As Charge For In-Patients, Outpatient and Dentals, Maternity Inner Limit',
+};
+
 export interface QuotationData {
   id: string;
   // Insured Information
@@ -25,6 +38,9 @@ export interface QuotationData {
   // Policy Period
   startDate: Date;
   endDate: Date;
+
+  // Benefits Option
+  benefitsOption: BenefitsOption;
   
   // Benefits
   benefits: {
