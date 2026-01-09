@@ -62,10 +62,13 @@ export default function QuotationDetails() {
   const getTotalMembers = () => {
     const groups = quotation.insured_groups as any[];
     if (!groups) return 0;
-    return groups.reduce((sum, g) => {
-      const m = g.members || {};
-      return sum + (m.male0to59 || 0) + (m.female0to59 || 0) + (m.child0to59 || 0) + (m.male60to64 || 0) + (m.female60to64 || 0);
-    }, 0);
+    // Only count In-Patient (IP) groups for total member count
+    return groups
+      .filter(g => g.planName?.startsWith("IP"))
+      .reduce((sum, g) => {
+        const m = g.members || {};
+        return sum + (m.male0to59 || 0) + (m.female0to59 || 0) + (m.child0to59 || 0) + (m.male60to64 || 0) + (m.female60to64 || 0);
+      }, 0);
   };
 
   const canEdit = quotation.status !== "locked" && quotation.status !== "approved";
