@@ -52,13 +52,17 @@ export default function Login() {
   const onLogin = async (data: LoginFormData) => {
     setIsLoading(true);
     const { error } = await signIn(data.email, data.password);
-    setIsLoading(false);
     
     if (error) {
+      setIsLoading(false);
       toast.error(error.message);
     } else {
-      toast.success("Login successful!");
-      navigate("/");
+      // Wait a moment for the auth state to update and profile to load
+      setTimeout(() => {
+        setIsLoading(false);
+        toast.success("Login successful!");
+        navigate("/");
+      }, 500);
     }
   };
 
