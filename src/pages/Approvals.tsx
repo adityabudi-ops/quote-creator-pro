@@ -258,7 +258,13 @@ export default function Approvals() {
     return active;
   };
 
-  const canApprove = userRole === "tenaga_pialang" || userRole === "tenaga_ahli" || userRole === "admin";
+  // Check if user can approve a specific quotation based on its status
+  const canApproveQuotation = (quotationStatus: QuotationStatus) => {
+    if (userRole === "admin") return true;
+    if (userRole === "tenaga_pialang" && quotationStatus === "pending_pialang") return true;
+    if (userRole === "tenaga_ahli" && quotationStatus === "pending_ahli") return true;
+    return false;
+  };
 
   const pendingPialangCount = quotations?.filter(q => q.status === "pending_pialang").length || 0;
   const pendingAhliCount = quotations?.filter(q => q.status === "pending_ahli").length || 0;
@@ -481,7 +487,7 @@ export default function Approvals() {
                             View
                           </Link>
                         </Button>
-                        {canApprove && (
+                        {canApproveQuotation(quotation.status) && (
                           <>
                             <Button
                               variant="outline"
