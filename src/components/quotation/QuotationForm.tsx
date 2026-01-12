@@ -501,8 +501,8 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
       };
 
       if (mode === "edit" && initialData) {
-        // Update existing quotation
-        const { error } = await supabase
+        // Update existing quotation - reset approval workflow
+        const { data: updatedQuotation, error } = await supabase
           .from("quotations")
           .update({
             insured_name: data.insuredName,
@@ -514,12 +514,24 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
             benefits: benefitsJson,
             insured_groups: allInsuredGroups,
             version: (initialData.version || 1) + 1,
+            status: "pending_pialang", // Reset to start of approval workflow
           })
-          .eq("id", initialData.id);
+          .eq("id", initialData.id)
+          .select()
+          .single();
 
         if (error) throw error;
 
-        toast.success("Quotation updated successfully!");
+        // Create notification for Tenaga Pialang about amended quotation
+        await createNotification({
+          targetRole: "tenaga_pialang",
+          type: "pending_approval",
+          title: "Amended Quotation Pending Approval",
+          message: `Quotation ${initialData.id} for ${data.insuredName} has been amended and requires your review.`,
+          quotationId: initialData.id,
+        });
+
+        toast.success("Quotation updated and resubmitted for approval!");
         navigate(`/quotation/${initialData.id}`);
       } else {
         // Create new quotation
