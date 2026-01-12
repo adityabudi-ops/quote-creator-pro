@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Shield, Plus, Edit2, Trash2, Layers, Settings2, ChevronDown, ChevronRight } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Shield, Plus, Edit2, Trash2, Layers, Settings2, ChevronDown, ChevronRight, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -401,13 +402,23 @@ export default function BenefitsManagement() {
                                     !tier.is_active ? "opacity-50 bg-muted/30" : "bg-card"
                                   }`}
                                 >
-                                  <div>
+                                  <div className="flex-1 min-w-0">
                                     <p className="font-medium text-sm">{tier.name}</p>
                                     <p className="text-xs text-muted-foreground">
                                       Limit: {tier.limit_value.toLocaleString()}
                                     </p>
                                   </div>
                                   <div className="flex items-center gap-1">
+                                    <Link to={`/admin/benefits/coverage/${tier.id}`}>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        title="Manage Coverage Items"
+                                      >
+                                        <FileText className="w-3 h-3" />
+                                      </Button>
+                                    </Link>
                                     <Button
                                       variant="ghost"
                                       size="icon"
