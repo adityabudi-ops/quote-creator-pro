@@ -12,12 +12,16 @@ import {
   ClipboardCheck,
   FileText,
   Users,
-  Shield
+  Shield,
+  CheckSquare,
+  Square,
+  MinusSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -45,6 +49,7 @@ export default function Approvals() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState<any>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const userRole = profile?.role;
   
@@ -186,6 +191,74 @@ export default function Approvals() {
     },
   });
 
+  const bulkApproveMutation = useMutation({
+    mutationFn: async (quotationsToApprove: any[]) => {
+      for (const quotation of quotationsToApprove) {
+        const currentStatus = quotation.status as QuotationStatus;
+        let newStatus: QuotationStatus;
+        let approvalRole: ApprovalRole;
+
+        if (currentStatus === "pending_pialang") {
+          newStatus = "pending_ahli";
+          approvalRole = "tenaga_pialang";
+        } else if (currentStatus === "pending_ahli") {
+          newStatus = "approved";
+          approvalRole = "tenaga_ahli";
+        } else {
+          continue; // Skip invalid status
+        }
+
+        // Update quotation status
+        const { error: updateError } = await supabase
+          .from("quotations")
+          .update({ status: newStatus })
+          .eq("id", quotation.id);
+        
+        if (updateError) throw updateError;
+
+        // Record approval history
+        const { error: historyError } = await supabase
+          .from("approval_history")
+          .insert({
+            quotation_id: quotation.id,
+            approval_role: approvalRole,
+            approved_by: profile?.id,
+            status: "approved",
+          });
+        
+        if (historyError) throw historyError;
+
+        // Create notifications based on new status
+        if (newStatus === "pending_ahli") {
+          await createNotification({
+            targetRole: "tenaga_ahli",
+            type: "pending_approval",
+            title: "Quotation Pending Your Approval",
+            message: `Quotation ${quotation.quotation_number} for ${quotation.insured_name} has been approved by Tenaga Pialang and requires your review.`,
+            quotationId: quotation.id,
+          });
+        } else if (newStatus === "approved") {
+          await createNotification({
+            userId: quotation.created_by,
+            type: "quotation_created",
+            title: "Quotation Approved",
+            message: `Your quotation ${quotation.quotation_number} for ${quotation.insured_name} has been fully approved.`,
+            quotationId: quotation.id,
+          });
+        }
+      }
+    },
+    onSuccess: (_, quotations) => {
+      queryClient.invalidateQueries({ queryKey: ["pending_quotations"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      toast.success(`${quotations.length} quotation(s) approved successfully`);
+      setSelectedIds(new Set());
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
   const rejectMutation = useMutation({
     mutationFn: async ({ quotation, reason }: { quotation: any; reason: string }) => {
       const currentStatus = quotation.status as QuotationStatus;
@@ -247,6 +320,38 @@ export default function Approvals() {
       rejectMutation.mutate({ quotation: selectedQuotation, reason: rejectReason });
     }
   };
+
+  // Bulk selection helpers
+  const approvableQuotations = filteredQuotations.filter(q => canApproveQuotation(q.status));
+  
+  const toggleSelection = (id: string) => {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelectedIds(newSet);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === approvableQuotations.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(approvableQuotations.map(q => q.id)));
+    }
+  };
+
+  const handleBulkApprove = () => {
+    const quotationsToApprove = filteredQuotations.filter(q => selectedIds.has(q.id) && canApproveQuotation(q.status));
+    if (quotationsToApprove.length > 0) {
+      bulkApproveMutation.mutate(quotationsToApprove);
+    }
+  };
+
+  const selectedCount = selectedIds.size;
+  const isAllSelected = approvableQuotations.length > 0 && selectedIds.size === approvableQuotations.length;
+  const isPartialSelected = selectedIds.size > 0 && selectedIds.size < approvableQuotations.length;
 
   const getTotalMembers = (groups: any[]) => {
     if (!groups) return 0;
@@ -378,6 +483,52 @@ export default function Approvals() {
         />
       </div>
 
+      {/* Bulk Action Bar */}
+      {approvableQuotations.length > 0 && (
+        <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-transparent">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={toggleSelectAll}
+                  className="flex items-center gap-2 text-sm font-medium text-foreground hover:text-primary transition-colors"
+                >
+                  {isAllSelected ? (
+                    <CheckSquare className="w-5 h-5 text-primary" />
+                  ) : isPartialSelected ? (
+                    <MinusSquare className="w-5 h-5 text-primary" />
+                  ) : (
+                    <Square className="w-5 h-5 text-muted-foreground" />
+                  )}
+                  <span>
+                    {isAllSelected ? "Deselect All" : "Select All"} ({approvableQuotations.length} available)
+                  </span>
+                </button>
+                {selectedCount > 0 && (
+                  <span className="text-sm text-muted-foreground">
+                    {selectedCount} selected
+                  </span>
+                )}
+              </div>
+              
+              {selectedCount > 0 && (
+                <Button
+                  onClick={handleBulkApprove}
+                  disabled={bulkApproveMutation.isPending}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  {bulkApproveMutation.isPending 
+                    ? `Approving ${selectedCount}...` 
+                    : `Approve ${selectedCount} Quotation${selectedCount > 1 ? 's' : ''}`
+                  }
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Quotations List */}
       <div className="space-y-4">
         {filteredQuotations.length === 0 ? (
@@ -403,6 +554,19 @@ export default function Approvals() {
                 <div className="p-4 md:p-5 border-b border-border/50 bg-muted/30">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-start gap-3">
+                      {/* Checkbox for bulk selection - only show for approvable items */}
+                      {canApproveQuotation(quotation.status) && (
+                        <div 
+                          className="flex items-center justify-center pt-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Checkbox
+                            checked={selectedIds.has(quotation.id)}
+                            onCheckedChange={() => toggleSelection(quotation.id)}
+                            className="h-5 w-5 border-2"
+                          />
+                        </div>
+                      )}
                       <div className="hidden sm:flex p-2.5 rounded-xl bg-primary/10 text-primary">
                         <FileText className="w-5 h-5" />
                       </div>
