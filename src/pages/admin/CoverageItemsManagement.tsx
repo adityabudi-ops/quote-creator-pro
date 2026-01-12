@@ -283,14 +283,14 @@ export default function CoverageItemsManagement() {
                   <TableRow>
                     <TableHead className="min-w-[250px]">Coverage Item</TableHead>
                     {benefitsOptions?.map((option) => (
-                      <TableHead key={option.id} className="min-w-[150px] text-center">
-                        <div className="text-xs">
-                          <Badge variant="outline" className="font-mono mb-1">
-                            {option.display_order}
+                      <TableHead key={option.id} className="min-w-[180px] text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <Badge variant="outline" className="font-mono text-[10px]">
+                            {option.code}
                           </Badge>
-                        </div>
-                        <div className="text-xs font-normal truncate max-w-[140px]" title={option.name}>
-                          {option.code.split("_").slice(0, 2).join(" ")}
+                          <div className="text-xs font-normal text-muted-foreground leading-tight max-w-[170px]" title={option.name}>
+                            {option.name}
+                          </div>
                         </div>
                       </TableHead>
                     ))}
