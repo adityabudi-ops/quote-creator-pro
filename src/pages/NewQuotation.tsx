@@ -1,6 +1,17 @@
+import { Navigate } from "react-router-dom";
 import { QuotationForm } from "@/components/quotation/QuotationForm";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function NewQuotation() {
+  const { profile } = useAuth();
+  
+  // Admin-only users cannot create quotations
+  const isAdminOnly = profile?.role === "admin";
+  
+  if (isAdminOnly) {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}

@@ -32,6 +32,12 @@ export function AppSidebar() {
 
   // Check if user has admin access (either admin role or is_admin flag)
   const isAdmin = profile?.role === "admin" || profile?.is_admin === true;
+  
+  // Admin-only users (role=admin) cannot create or approve quotations
+  const isAdminOnly = profile?.role === "admin";
+  
+  // Approvers can see the Approvals page
+  const isApprover = profile?.role === "tenaga_pialang" || profile?.role === "tenaga_ahli";
 
   return (
     <aside className="w-64 bg-sidebar text-sidebar-foreground min-h-[calc(100vh-4rem)] p-4">
@@ -39,6 +45,16 @@ export function AppSidebar() {
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.href;
+          
+          // Hide "New Quotation" for admin-only users
+          if (item.href === "/quotation/new" && isAdminOnly) {
+            return null;
+          }
+          
+          // Hide "Approvals" for admin-only users (only approvers can see it)
+          if (item.href === "/approvals" && isAdminOnly && !isApprover) {
+            return null;
+          }
           
           return (
             <Link

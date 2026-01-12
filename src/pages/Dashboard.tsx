@@ -18,6 +18,8 @@ export default function Dashboard() {
   const { profile } = useAuth();
   const userRole = profile?.role;
   const isAdmin = profile?.role === "admin" || profile?.is_admin === true;
+  const isAdminOnly = profile?.role === "admin"; // Admin-only users can't create/approve
+  const isApprover = userRole === "tenaga_pialang" || userRole === "tenaga_ahli";
 
   // Fetch real stats
   const { data: stats } = useQuery({
@@ -63,8 +65,7 @@ export default function Dashboard() {
     return "Awaiting approval";
   };
 
-  // Check if user is an approver
-  const isApprover = userRole === "tenaga_pialang" || userRole === "tenaga_ahli" || userRole === "admin";
+  // Note: isApprover is defined at the top of the component
 
   return (
     <div className="space-y-6 md:space-y-8 animate-fade-in">
@@ -87,7 +88,8 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-            {isApprover && (
+            {/* Show Review Queue only for approvers (not admin-only) */}
+            {isApprover && !isAdminOnly && (
               <Link to="/approvals">
                 <Button 
                   size="lg" 
@@ -104,15 +106,18 @@ export default function Dashboard() {
                 </Button>
               </Link>
             )}
-            <Link to="/quotation/new">
-              <Button 
-                size="lg" 
-                className="w-full md:w-auto bg-white text-primary hover:bg-white/90 shadow-lg"
-              >
-                <FilePlus className="w-5 h-5 mr-2" />
-                New Quotation
-              </Button>
-            </Link>
+            {/* Hide New Quotation button for admin-only users */}
+            {!isAdminOnly && (
+              <Link to="/quotation/new">
+                <Button 
+                  size="lg" 
+                  className="w-full md:w-auto bg-white text-primary hover:bg-white/90 shadow-lg"
+                >
+                  <FilePlus className="w-5 h-5 mr-2" />
+                  New Quotation
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -156,17 +161,20 @@ export default function Dashboard() {
             <span className="text-sm font-medium">All Quotations</span>
           </div>
         </Link>
-        <Link to="/approvals" className="block">
-          <div className="bg-card border rounded-xl p-4 text-center hover:bg-muted/50 transition-colors relative">
-            <CheckCircle className="w-6 h-6 mx-auto mb-2 text-primary" />
-            <span className="text-sm font-medium">Approvals</span>
-            {isApprover && getPendingForRole() > 0 && (
-              <span className="absolute top-2 right-2 w-5 h-5 text-xs bg-destructive text-white rounded-full flex items-center justify-center font-bold">
-                {getPendingForRole()}
-              </span>
-            )}
-          </div>
-        </Link>
+        {/* Hide Approvals for admin-only users */}
+        {!isAdminOnly && (
+          <Link to="/approvals" className="block">
+            <div className="bg-card border rounded-xl p-4 text-center hover:bg-muted/50 transition-colors relative">
+              <CheckCircle className="w-6 h-6 mx-auto mb-2 text-primary" />
+              <span className="text-sm font-medium">Approvals</span>
+              {isApprover && getPendingForRole() > 0 && (
+                <span className="absolute top-2 right-2 w-5 h-5 text-xs bg-destructive text-white rounded-full flex items-center justify-center font-bold">
+                  {getPendingForRole()}
+                </span>
+              )}
+            </div>
+          </Link>
+        )}
         {isAdmin && (
           <>
             <Link to="/admin/users" className="block">

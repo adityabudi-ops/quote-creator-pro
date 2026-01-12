@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { format } from "date-fns";
 import { 
   CheckCircle, 
@@ -47,12 +47,19 @@ export default function Approvals() {
   const [rejectReason, setRejectReason] = useState("");
 
   const userRole = profile?.role;
+  
+  // Admin-only users cannot access approvals page
+  const isAdminOnly = userRole === "admin";
+  
+  if (isAdminOnly) {
+    return <Navigate to="/" replace />;
+  }
 
   // Determine which status to filter based on user role
+  // Note: Admin-only users are redirected before reaching here
   const getFilterStatus = (): QuotationStatus | null => {
     if (userRole === "tenaga_pialang") return "pending_pialang";
     if (userRole === "tenaga_ahli") return "pending_ahli";
-    if (userRole === "admin") return null; // Admin can see all pending
     return null;
   };
 
@@ -70,7 +77,8 @@ export default function Approvals() {
       const filterStatus = getFilterStatus();
       if (filterStatus) {
         query = query.eq("status", filterStatus);
-      } else if (userRole === "admin") {
+      } else {
+        // Sales users see all pending quotations
         query = query.in("status", ["pending_pialang", "pending_ahli"]);
       }
       
@@ -272,8 +280,7 @@ export default function Approvals() {
   const getRoleLabel = () => {
     if (userRole === "tenaga_pialang") return "Tenaga Pialang";
     if (userRole === "tenaga_ahli") return "Tenaga Ahli";
-    if (userRole === "admin") return "Administrator";
-    return "User";
+    return "Account Executive";
   };
 
   if (isLoading) {
