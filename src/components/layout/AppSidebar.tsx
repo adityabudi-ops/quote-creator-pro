@@ -7,7 +7,8 @@ import {
   History, 
   CheckSquare,
   Users,
-  Building2
+  Building2,
+  Shield
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,6 +24,7 @@ const navItems = [
 const adminItems = [
   { href: "/admin/users", label: "User Management", icon: Users },
   { href: "/admin/insurance", label: "Insurance Companies", icon: Building2 },
+  { href: "/admin/benefits", label: "Benefits Management", icon: Shield },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -84,7 +86,7 @@ export function AppSidebar() {
             const isActive = location.pathname === item.href || location.pathname.startsWith(item.href);
             
             // Only show admin-specific items to admins
-            if ((item.href === "/admin/users" || item.href === "/admin/insurance") && !isAdmin) {
+            if ((item.href === "/admin/users" || item.href === "/admin/insurance" || item.href === "/admin/benefits") && !isAdmin) {
               return null;
             }
             
