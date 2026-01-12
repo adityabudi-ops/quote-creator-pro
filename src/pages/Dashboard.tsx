@@ -17,6 +17,7 @@ const ROLE_LABELS: Record<string, string> = {
 export default function Dashboard() {
   const { profile } = useAuth();
   const userRole = profile?.role;
+  const isAdmin = profile?.role === "admin" || profile?.is_admin === true;
 
   // Fetch real stats
   const { data: stats } = useQuery({
@@ -166,7 +167,7 @@ export default function Dashboard() {
             )}
           </div>
         </Link>
-        {userRole === "admin" && (
+        {isAdmin && (
           <>
             <Link to="/admin/users" className="block">
               <div className="bg-card border rounded-xl p-4 text-center hover:bg-muted/50 transition-colors">
@@ -174,7 +175,7 @@ export default function Dashboard() {
                 <span className="text-sm font-medium">Users</span>
               </div>
             </Link>
-            <Link to="/admin/insurance-companies" className="block">
+            <Link to="/admin/insurance" className="block">
               <div className="bg-card border rounded-xl p-4 text-center hover:bg-muted/50 transition-colors">
                 <Building2 className="w-6 h-6 mx-auto mb-2 text-primary" />
                 <span className="text-sm font-medium">Insurance</span>

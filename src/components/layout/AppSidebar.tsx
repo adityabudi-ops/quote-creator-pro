@@ -30,7 +30,8 @@ export function AppSidebar() {
   const location = useLocation();
   const { profile } = useAuth();
 
-  const isAdmin = profile?.role === "admin";
+  // Check if user has admin access (either admin role or is_admin flag)
+  const isAdmin = profile?.role === "admin" || profile?.is_admin === true;
 
   return (
     <aside className="w-64 bg-sidebar text-sidebar-foreground min-h-[calc(100vh-4rem)] p-4">
