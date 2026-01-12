@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { User, LogOut } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { User, LogOut, Settings, HelpCircle } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -82,8 +82,16 @@ export function AppHeader() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Profile Settings</DropdownMenuItem>
-            <DropdownMenuItem>Help & Support</DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/profile" className="flex items-center cursor-pointer">
+                <Settings className="w-4 h-4 mr-2" />
+                Profile Settings
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <HelpCircle className="w-4 h-4 mr-2" />
+              Help & Support
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive" onClick={handleSignOut}>
               <LogOut className="w-4 h-4 mr-2" />
