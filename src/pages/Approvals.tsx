@@ -75,7 +75,7 @@ export default function Approvals() {
         .from("quotations")
         .select(`
           *,
-          creator:profiles!quotations_created_by_fkey(full_name)
+          creator:profiles!quotations_created_by_fkey(full_name, user_id)
         `)
         .order("created_at", { ascending: false });
       
@@ -171,14 +171,17 @@ export default function Approvals() {
           quotationId: quotation.id,
         });
       } else if (newStatus === "approved") {
-        // Notify the creator that quotation is approved
-        await createNotification({
-          userId: quotation.created_by,
-          type: "quotation_created",
-          title: "Quotation Approved",
-          message: `Your quotation ${quotation.quotation_number} for ${quotation.insured_name} has been fully approved.`,
-          quotationId: quotation.id,
-        });
+        // Notify the creator that quotation is approved - use creator's user_id from profile
+        const creatorUserId = quotation.creator?.user_id;
+        if (creatorUserId) {
+          await createNotification({
+            userId: creatorUserId,
+            type: "quotation_created",
+            title: "Quotation Approved",
+            message: `Your quotation ${quotation.quotation_number} for ${quotation.insured_name} has been fully approved.`,
+            quotationId: quotation.id,
+          });
+        }
       }
     },
     onSuccess: () => {
@@ -238,13 +241,17 @@ export default function Approvals() {
             quotationId: quotation.id,
           });
         } else if (newStatus === "approved") {
-          await createNotification({
-            userId: quotation.created_by,
-            type: "quotation_created",
-            title: "Quotation Approved",
-            message: `Your quotation ${quotation.quotation_number} for ${quotation.insured_name} has been fully approved.`,
-            quotationId: quotation.id,
-          });
+          // Notify the creator that quotation is approved - use creator's user_id from profile
+          const creatorUserId = quotation.creator?.user_id;
+          if (creatorUserId) {
+            await createNotification({
+              userId: creatorUserId,
+              type: "quotation_created",
+              title: "Quotation Approved",
+              message: `Your quotation ${quotation.quotation_number} for ${quotation.insured_name} has been fully approved.`,
+              quotationId: quotation.id,
+            });
+          }
         }
       }
     },
