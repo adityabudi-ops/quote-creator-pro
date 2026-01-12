@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Plus, Edit2, Trash2, DollarSign, Percent, Ban, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Plus, Edit2, Trash2, DollarSign, Percent, Ban, CheckCircle2, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +41,8 @@ import {
   useUpdateCoverageItem,
   useDeleteCoverageItem,
   useUpsertCoverageValue,
+  usePlanTierOptions,
+  useSetPlanTierOptions,
   type CoverageItem,
   type CoverageValue,
 } from "@/hooks/useBenefitsManagement";
@@ -59,19 +62,23 @@ export default function CoverageItemsManagement() {
   const { data: planTiers } = usePlanTiers(undefined, false);
   const { data: benefitsOptions } = useBenefitsOptions(true);
   const { data: coverageItems, isLoading } = useCoverageItems(planTierId, false);
+  const { data: planTierOptions } = usePlanTierOptions(planTierId);
   
   const createCoverageItem = useCreateCoverageItem();
   const updateCoverageItem = useUpdateCoverageItem();
   const deleteCoverageItem = useDeleteCoverageItem();
   const upsertCoverageValue = useUpsertCoverageValue();
+  const setPlanTierOptions = useSetPlanTierOptions();
   
   const [itemDialog, setItemDialog] = useState(false);
   const [valueDialog, setValueDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<{ id: string; name: string } | null>(null);
+  const [optionsDialog, setOptionsDialog] = useState(false);
   
   const [selectedItem, setSelectedItem] = useState<CoverageItem | null>(null);
   const [selectedValueItem, setSelectedValueItem] = useState<CoverageItem | null>(null);
   const [selectedOptionId, setSelectedOptionId] = useState<string>("");
+  const [selectedOptionsIds, setSelectedOptionsIds] = useState<string[]>([]);
   
   const [itemForm, setItemForm] = useState({
     name: "",
@@ -87,6 +94,40 @@ export default function CoverageItemsManagement() {
   });
   
   const planTier = planTiers?.find(pt => pt.id === planTierId);
+  
+  // Get the linked options for this plan tier (or show all if none linked)
+  const linkedOptionIds = useMemo(() => 
+    planTierOptions?.map(pto => pto.benefits_option_id) || [],
+    [planTierOptions]
+  );
+  
+  const displayedOptions = useMemo(() => {
+    if (!benefitsOptions) return [];
+    // If no options are linked yet, show all options
+    if (linkedOptionIds.length === 0) return benefitsOptions;
+    // Otherwise, show only linked options
+    return benefitsOptions.filter(opt => linkedOptionIds.includes(opt.id));
+  }, [benefitsOptions, linkedOptionIds]);
+  
+  const openOptionsDialog = () => {
+    setSelectedOptionsIds(linkedOptionIds);
+    setOptionsDialog(true);
+  };
+  
+  const saveOptions = async () => {
+    if (!planTierId) return;
+    try {
+      await setPlanTierOptions.mutateAsync({
+        planTierId,
+        optionIds: selectedOptionsIds,
+      });
+      toast.success("Coverage options updated");
+      setOptionsDialog(false);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to save options");
+    }
+  };
+
   
   const openItemDialog = (item?: CoverageItem) => {
     if (item) {
@@ -253,10 +294,19 @@ export default function CoverageItemsManagement() {
             <span className="font-semibold text-primary">{planTier.name}</span>
           </p>
         </div>
-        <Button onClick={() => openItemDialog()}>
-          <Plus className="w-4 h-4 mr-2" />
-          Add Coverage Item
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={openOptionsDialog}>
+            <Settings2 className="w-4 h-4 mr-2" />
+            Configure Options
+            {linkedOptionIds.length > 0 && (
+              <Badge variant="secondary" className="ml-2">{linkedOptionIds.length}</Badge>
+            )}
+          </Button>
+          <Button onClick={() => openItemDialog()}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Coverage Item
+          </Button>
+        </div>
       </div>
 
       {/* Coverage Items Table */}
@@ -282,7 +332,7 @@ export default function CoverageItemsManagement() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="min-w-[250px]">Coverage Item</TableHead>
-                    {benefitsOptions?.map((option) => (
+                    {displayedOptions.map((option) => (
                       <TableHead key={option.id} className="min-w-[180px] text-center">
                         <div className="flex flex-col items-center gap-1">
                           <Badge variant="outline" className="font-mono text-[10px]">
@@ -313,7 +363,7 @@ export default function CoverageItemsManagement() {
                           )}
                         </div>
                       </TableCell>
-                      {benefitsOptions?.map((option) => {
+                      {displayedOptions.map((option) => {
                         const cv = item.coverage_values?.find(
                           v => v.benefits_option_id === option.id
                         );
@@ -503,6 +553,62 @@ export default function CoverageItemsManagement() {
               disabled={deleteCoverageItem.isPending}
             >
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Coverage Options Configuration Dialog */}
+      <Dialog open={optionsDialog} onOpenChange={setOptionsDialog}>
+        <DialogContent className="bg-background max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Configure Coverage Options</DialogTitle>
+            <DialogDescription>
+              Select which coverage options apply to {planTier?.name}. 
+              Only selected options will be shown in the coverage values table.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4 max-h-[400px] overflow-y-auto">
+            {benefitsOptions?.map((option) => (
+              <div 
+                key={option.id} 
+                className="flex items-start gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+              >
+                <Checkbox
+                  id={`option-${option.id}`}
+                  checked={selectedOptionsIds.includes(option.id)}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setSelectedOptionsIds([...selectedOptionsIds, option.id]);
+                    } else {
+                      setSelectedOptionsIds(selectedOptionsIds.filter(id => id !== option.id));
+                    }
+                  }}
+                />
+                <div className="flex-1">
+                  <label 
+                    htmlFor={`option-${option.id}`} 
+                    className="font-medium cursor-pointer"
+                  >
+                    {option.name}
+                  </label>
+                  <Badge variant="outline" className="ml-2 font-mono text-[10px]">
+                    {option.code}
+                  </Badge>
+                  {option.description && (
+                    <p className="text-xs text-muted-foreground mt-1">{option.description}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOptionsDialog(false)}>Cancel</Button>
+            <Button
+              onClick={saveOptions}
+              disabled={setPlanTierOptions.isPending}
+            >
+              Save Options ({selectedOptionsIds.length})
             </Button>
           </DialogFooter>
         </DialogContent>

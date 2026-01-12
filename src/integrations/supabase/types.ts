@@ -288,6 +288,42 @@ export type Database = {
           },
         ]
       }
+      plan_tier_options: {
+        Row: {
+          benefits_option_id: string
+          created_at: string
+          id: string
+          plan_tier_id: string
+        }
+        Insert: {
+          benefits_option_id: string
+          created_at?: string
+          id?: string
+          plan_tier_id: string
+        }
+        Update: {
+          benefits_option_id?: string
+          created_at?: string
+          id?: string
+          plan_tier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_tier_options_benefits_option_id_fkey"
+            columns: ["benefits_option_id"]
+            isOneToOne: false
+            referencedRelation: "benefits_options"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_tier_options_plan_tier_id_fkey"
+            columns: ["plan_tier_id"]
+            isOneToOne: false
+            referencedRelation: "plan_tiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_tiers: {
         Row: {
           benefit_type_id: string

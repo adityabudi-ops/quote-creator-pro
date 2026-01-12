@@ -63,6 +63,14 @@ export interface CoverageValue {
   benefits_option?: BenefitsOption;
 }
 
+export interface PlanTierOption {
+  id: string;
+  plan_tier_id: string;
+  benefits_option_id: string;
+  created_at: string;
+  benefits_option?: BenefitsOption;
+}
+
 // Fetch all benefit types
 export function useBenefitTypes(activeOnly = true) {
   return useQuery({
@@ -388,6 +396,93 @@ export function useDeleteCoverageValue() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["coverage_items"] });
+    },
+  });
+}
+
+// Fetch plan tier options (linked benefits options for a plan tier)
+export function usePlanTierOptions(planTierId?: string) {
+  return useQuery({
+    queryKey: ["plan_tier_options", planTierId],
+    queryFn: async () => {
+      if (!planTierId) return [];
+      
+      const { data, error } = await supabase
+        .from("plan_tier_options")
+        .select("*, benefits_option:benefits_options(*)")
+        .eq("plan_tier_id", planTierId);
+      
+      if (error) throw error;
+      return data as PlanTierOption[];
+    },
+    enabled: !!planTierId,
+  });
+}
+
+// Add a benefits option to a plan tier
+export function useAddPlanTierOption() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { plan_tier_id: string; benefits_option_id: string }) => {
+      const { data: result, error } = await supabase
+        .from("plan_tier_options")
+        .insert(data)
+        .select()
+        .single();
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["plan_tier_options", variables.plan_tier_id] });
+    },
+  });
+}
+
+// Remove a benefits option from a plan tier
+export function useRemovePlanTierOption() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ planTierId, benefitsOptionId }: { planTierId: string; benefitsOptionId: string }) => {
+      const { error } = await supabase
+        .from("plan_tier_options")
+        .delete()
+        .eq("plan_tier_id", planTierId)
+        .eq("benefits_option_id", benefitsOptionId);
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["plan_tier_options", variables.planTierId] });
+    },
+  });
+}
+
+// Bulk set plan tier options (replaces all existing options)
+export function useSetPlanTierOptions() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ planTierId, optionIds }: { planTierId: string; optionIds: string[] }) => {
+      // Delete existing options
+      const { error: deleteError } = await supabase
+        .from("plan_tier_options")
+        .delete()
+        .eq("plan_tier_id", planTierId);
+      
+      if (deleteError) throw deleteError;
+      
+      // Insert new options
+      if (optionIds.length > 0) {
+        const { error: insertError } = await supabase
+          .from("plan_tier_options")
+          .insert(optionIds.map(optionId => ({
+            plan_tier_id: planTierId,
+            benefits_option_id: optionId,
+          })));
+        
+        if (insertError) throw insertError;
+      }
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["plan_tier_options", variables.planTierId] });
     },
   });
 }
