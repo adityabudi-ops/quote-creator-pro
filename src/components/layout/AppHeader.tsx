@@ -32,12 +32,12 @@ export function AppHeader() {
   const roleLabel = profile?.role ? ROLE_LABELS[profile.role] || profile.role : "";
 
   return (
-    <header className="page-header h-16 px-6 flex items-center justify-between">
+    <header className="page-header h-16 px-6 flex items-center justify-between sticky top-0 z-50 backdrop-blur-sm">
       <div className="flex items-center gap-3">
         <img 
           src={premiroLogo} 
           alt="Premiro Logo" 
-          className="h-10 w-auto object-contain"
+          className="h-10 w-auto object-contain brightness-0 invert opacity-90"
         />
         <div>
           <h1 className="text-lg font-heading font-semibold">SME EB Quotation System</h1>
