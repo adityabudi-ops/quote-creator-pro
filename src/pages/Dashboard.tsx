@@ -87,19 +87,18 @@ export default function Dashboard() {
               {profile?.role && ROLE_LABELS[profile.role]} • SME Employee Benefits Quotation System
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-            {/* Show Review Queue only for approvers (not admin-only) */}
+          <div className="flex flex-col sm:flex-row gap-3 shrink-0">
+            {/* Show Review Queue for approvers with enhanced styling */}
             {isApprover && !isAdminOnly && (
               <Link to="/approvals">
                 <Button 
                   size="lg" 
-                  variant="outline"
-                  className="w-full md:w-auto border-white/30 text-white hover:bg-white/10 hover:text-white"
+                  className="w-full md:w-auto bg-gradient-to-r from-accent to-[hsl(182,70%,50%)] text-primary-foreground hover:from-accent/90 hover:to-[hsl(182,70%,45%)] shadow-lg shadow-accent/30 font-semibold transition-all duration-300 hover:scale-105"
                 >
                   <ClipboardCheck className="w-5 h-5 mr-2" />
                   Review Queue
                   {getPendingForRole() > 0 && (
-                    <span className="ml-2 px-2 py-0.5 text-xs bg-white text-primary rounded-full font-bold">
+                    <span className="ml-2 px-2.5 py-1 text-xs bg-white text-primary rounded-full font-bold animate-pulse shadow-md">
                       {getPendingForRole()}
                     </span>
                   )}
@@ -111,7 +110,7 @@ export default function Dashboard() {
               <Link to="/quotation/new">
                 <Button 
                   size="lg" 
-                  className="w-full md:w-auto bg-white text-primary hover:bg-white/90 shadow-lg"
+                  className="w-full md:w-auto bg-white text-primary hover:bg-white/90 shadow-lg font-semibold transition-all duration-300 hover:scale-105"
                 >
                   <FilePlus className="w-5 h-5 mr-2" />
                   New Quotation
