@@ -259,8 +259,8 @@ export default function Approvals() {
   };
 
   // Check if user can approve a specific quotation based on its status
+  // Only Tenaga Pialang and Tenaga Ahli can approve - Admin manages admin tasks only
   const canApproveQuotation = (quotationStatus: QuotationStatus) => {
-    if (userRole === "admin") return true;
     if (userRole === "tenaga_pialang" && quotationStatus === "pending_pialang") return true;
     if (userRole === "tenaga_ahli" && quotationStatus === "pending_ahli") return true;
     return false;
