@@ -321,6 +321,14 @@ export default function Approvals() {
     }
   };
 
+  // Check if user can approve a specific quotation based on its status
+  // Only Tenaga Pialang and Tenaga Ahli can approve - Admin manages admin tasks only
+  const canApproveQuotation = (quotationStatus: QuotationStatus) => {
+    if (userRole === "tenaga_pialang" && quotationStatus === "pending_pialang") return true;
+    if (userRole === "tenaga_ahli" && quotationStatus === "pending_ahli") return true;
+    return false;
+  };
+
   // Bulk selection helpers
   const approvableQuotations = filteredQuotations.filter(q => canApproveQuotation(q.status));
   
@@ -369,14 +377,6 @@ export default function Approvals() {
     if (benefits.dental) active.push("Dental");
     if (benefits.maternity) active.push("Mat.");
     return active;
-  };
-
-  // Check if user can approve a specific quotation based on its status
-  // Only Tenaga Pialang and Tenaga Ahli can approve - Admin manages admin tasks only
-  const canApproveQuotation = (quotationStatus: QuotationStatus) => {
-    if (userRole === "tenaga_pialang" && quotationStatus === "pending_pialang") return true;
-    if (userRole === "tenaga_ahli" && quotationStatus === "pending_ahli") return true;
-    return false;
   };
 
   const pendingPialangCount = quotations?.filter(q => q.status === "pending_pialang").length || 0;
