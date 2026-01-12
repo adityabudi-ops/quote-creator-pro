@@ -75,7 +75,7 @@ export default function EditQuotation() {
 
   // Transform database data to form format
   const formData = {
-    id: quotation.quotation_number,
+    id: quotation.id, // Use the actual database UUID for updates
     insuredName: quotation.insured_name,
     insuredAddress: quotation.insured_address,
     startDate: new Date(quotation.start_date),
