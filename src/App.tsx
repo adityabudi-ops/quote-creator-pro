@@ -13,6 +13,7 @@ import EditQuotation from "./pages/EditQuotation";
 import AuditLog from "./pages/AuditLog";
 import Login from "./pages/Login";
 import Approvals from "./pages/Approvals";
+import Profile from "./pages/Profile";
 import UserManagement from "./pages/admin/UserManagement";
 import InsuranceCompanies from "./pages/admin/InsuranceCompanies";
 import NotFound from "./pages/NotFound";
@@ -49,6 +50,7 @@ function AppRoutes() {
                 <Route path="/quotation/edit/:id" element={<EditQuotation />} />
                 <Route path="/quotations" element={<AllQuotations />} />
                 <Route path="/approvals" element={<Approvals />} />
+                <Route path="/profile" element={<Profile />} />
                 <Route path="/audit-log" element={<AuditLog />} />
                 <Route path="/admin/users" element={<UserManagement />} />
                 <Route path="/admin/insurance" element={<InsuranceCompanies />} />
