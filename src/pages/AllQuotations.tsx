@@ -21,11 +21,15 @@ import { StatusBadge } from "@/components/quotation/StatusBadge";
 import { ApprovalInfo } from "@/components/quotation/ApprovalInfo";
 import { useQuotationsWithApprovals } from "@/hooks/useApprovalHistory";
 import { useInsuranceCompanies } from "@/hooks/useInsuranceCompanies";
+import { useAuth } from "@/hooks/useAuth";
 import type { Database } from "@/integrations/supabase/types";
 
 type QuotationStatus = Database["public"]["Enums"]["quotation_status"];
 
 export default function AllQuotations() {
+  const { profile } = useAuth();
+  const isAdminOnly = profile?.role === "admin";
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<QuotationStatus | "all">("all");
   
@@ -86,12 +90,14 @@ export default function AllQuotations() {
             Manage and review all quotation requests
           </p>
         </div>
-        <Link to="/quotation/new">
-          <Button className="w-full sm:w-auto">
-            <FilePlus className="w-4 h-4 mr-2" />
-            New Quotation
-          </Button>
-        </Link>
+        {!isAdminOnly && (
+          <Link to="/quotation/new">
+            <Button className="w-full sm:w-auto">
+              <FilePlus className="w-4 h-4 mr-2" />
+              New Quotation
+            </Button>
+          </Link>
+        )}
       </div>
 
       {/* Filters */}
