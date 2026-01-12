@@ -17,9 +17,9 @@ interface StatsCardProps {
 
 const variantStyles = {
   default: "bg-card border",
-  primary: "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground border-0",
-  success: "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-0",
-  warning: "bg-gradient-to-br from-amber-500 to-amber-600 text-white border-0",
+  primary: "bg-primary text-primary-foreground border-0",
+  success: "bg-emerald-500 text-white border-0",
+  warning: "bg-amber-500 text-white border-0",
 };
 
 const iconStyles = {

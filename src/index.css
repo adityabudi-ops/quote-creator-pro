@@ -122,7 +122,7 @@
 
 @layer components {
   .page-header {
-    @apply bg-gradient-to-r from-primary to-[hsl(202,92%,20%)] text-primary-foreground;
+    @apply bg-primary text-primary-foreground;
   }
 
   .status-badge {
