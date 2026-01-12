@@ -70,33 +70,46 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 md:space-y-8 animate-fade-in">
       {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-[hsl(202,92%,20%)] p-6 md:p-8 text-primary-foreground">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-[hsl(202,92%,20%)] p-5 md:p-8 text-primary-foreground shadow-xl">
+        {/* Background Pattern */}
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iNCIvPjwvZz48L2c+PC9zdmc+')] opacity-50"></div>
-        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-accent" />
-              <span className="text-sm text-primary-foreground/80">
+        
+        {/* Decorative Circles */}
+        <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-2xl"></div>
+        <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-accent/20 rounded-full blur-2xl"></div>
+        
+        <div className="relative space-y-5">
+          {/* Header Section */}
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1.5">
+              <Sparkles className="w-4 h-4 text-accent" />
+              <span className="text-xs md:text-sm text-primary-foreground/90 font-medium">
                 {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
               </span>
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold">
-              {greeting()}, {profile?.full_name?.split(' ')[0] || 'User'}!
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight">
+              {greeting()}, {profile?.full_name?.split(' ')[0] || 'User'}! 👋
             </h1>
-            <p className="text-primary-foreground/80 text-sm md:text-base">
-              {profile?.role && ROLE_LABELS[profile.role]} • SME Employee Benefits Quotation System
+            <p className="text-primary-foreground/70 text-sm md:text-base flex items-center gap-2 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1 text-xs md:text-sm font-medium">
+                {profile?.role && ROLE_LABELS[profile.role]}
+              </span>
+              <span className="text-primary-foreground/50">•</span>
+              <span className="text-xs md:text-sm">SME Employee Benefits Quotation System</span>
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3 shrink-0">
+          
+          {/* Action Buttons - Stacked on mobile, side by side on larger screens */}
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
             {/* Show Review Queue for approvers with enhanced styling */}
             {isApprover && !isAdminOnly && (
-              <Link to="/approvals">
+              <Link to="/approvals" className="w-full sm:w-auto">
                 <Button 
                   size="lg" 
-                  className="w-full md:w-auto bg-gradient-to-r from-accent to-[hsl(182,70%,50%)] text-primary-foreground hover:from-accent/90 hover:to-[hsl(182,70%,45%)] shadow-lg shadow-accent/30 font-semibold transition-all duration-300 hover:scale-105"
+                  className="w-full bg-gradient-to-r from-accent to-[hsl(182,70%,50%)] text-primary-foreground hover:from-accent/90 hover:to-[hsl(182,70%,45%)] shadow-lg shadow-accent/30 font-semibold transition-all duration-300 hover:scale-[1.02] h-12"
                 >
-                  <ClipboardCheck className="w-5 h-5 mr-2" />
-                  Review Queue
+                  <ClipboardCheck className="w-5 h-5 mr-2 shrink-0" />
+                  <span>Review Queue</span>
                   {getPendingForRole() > 0 && (
                     <span className="ml-2 px-2.5 py-1 text-xs bg-white text-primary rounded-full font-bold animate-pulse shadow-md">
                       {getPendingForRole()}
@@ -107,13 +120,13 @@ export default function Dashboard() {
             )}
             {/* Hide New Quotation button for admin-only users */}
             {!isAdminOnly && (
-              <Link to="/quotation/new">
+              <Link to="/quotation/new" className="w-full sm:w-auto">
                 <Button 
                   size="lg" 
-                  className="w-full md:w-auto bg-white text-primary hover:bg-white/90 shadow-lg font-semibold transition-all duration-300 hover:scale-105"
+                  className="w-full bg-white text-primary hover:bg-white/90 shadow-lg font-semibold transition-all duration-300 hover:scale-[1.02] h-12"
                 >
-                  <FilePlus className="w-5 h-5 mr-2" />
-                  New Quotation
+                  <FilePlus className="w-5 h-5 mr-2 shrink-0" />
+                  <span>New Quotation</span>
                 </Button>
               </Link>
             )}
