@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { User, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
 import premiroLogo from "@/assets/premiro-logo.png";
+import { cn } from "@/lib/utils";
 
 const ROLE_LABELS: Record<string, string> = {
   sales: "Account Executive",
@@ -23,6 +25,16 @@ const ROLE_LABELS: Record<string, string> = {
 export function AppHeader() {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const handleSignOut = async () => {
     await signOut();
@@ -32,7 +44,12 @@ export function AppHeader() {
   const roleLabel = profile?.role ? ROLE_LABELS[profile.role] || profile.role : "";
 
   return (
-    <header className="page-header h-16 px-6 flex items-center justify-between sticky top-0 z-50 backdrop-blur-sm">
+    <header 
+      className={cn(
+        "page-header h-16 px-6 flex items-center justify-between sticky top-0 z-50 backdrop-blur-sm transition-shadow duration-300",
+        isScrolled && "shadow-md shadow-black/10"
+      )}
+    >
       <div className="flex items-center gap-3">
         <img 
           src={premiroLogo} 
