@@ -14,6 +14,7 @@ import AuditLog from "./pages/AuditLog";
 import Login from "./pages/Login";
 import Approvals from "./pages/Approvals";
 import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
 import UserManagement from "./pages/admin/UserManagement";
 import InsuranceCompanies from "./pages/admin/InsuranceCompanies";
 import NotFound from "./pages/NotFound";
@@ -54,6 +55,7 @@ function AppRoutes() {
                 <Route path="/audit-log" element={<AuditLog />} />
                 <Route path="/admin/users" element={<UserManagement />} />
                 <Route path="/admin/insurance" element={<InsuranceCompanies />} />
+                <Route path="/settings" element={<Settings />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </AppLayout>
