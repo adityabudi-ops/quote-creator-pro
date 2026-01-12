@@ -70,13 +70,9 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 md:space-y-8 animate-fade-in">
       {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-[hsl(202,92%,20%)] p-5 md:p-8 text-primary-foreground shadow-xl">
+      <div className="relative overflow-hidden rounded-2xl bg-primary p-5 md:p-8 text-primary-foreground shadow-xl">
         {/* Background Pattern */}
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iNCIvPjwvZz48L2c+PC9zdmc+')] opacity-50"></div>
-        
-        {/* Decorative Circles */}
-        <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-2xl"></div>
-        <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-accent/20 rounded-full blur-2xl"></div>
         
         <div className="relative space-y-5">
           {/* Header Section */}
@@ -106,7 +102,7 @@ export default function Dashboard() {
               <Link to="/approvals" className="w-full sm:w-auto">
                 <Button 
                   size="lg" 
-                  className="w-full bg-gradient-to-r from-accent to-[hsl(182,70%,50%)] text-primary-foreground hover:from-accent/90 hover:to-[hsl(182,70%,45%)] shadow-lg shadow-accent/30 font-semibold transition-all duration-300 hover:scale-[1.02] h-12"
+                  className="w-full bg-accent text-primary-foreground hover:bg-accent/90 shadow-lg shadow-accent/30 font-semibold transition-all duration-300 hover:scale-[1.02] h-12"
                 >
                   <ClipboardCheck className="w-5 h-5 mr-2 shrink-0" />
                   <span>Review Queue</span>

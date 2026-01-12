@@ -125,7 +125,7 @@ export default function QuotationDetails() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Hero Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-accent p-6 md:p-8 text-white">
+      <div className="relative overflow-hidden rounded-2xl bg-primary p-6 md:p-8 text-white">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMtOS45NDEgMC0xOCA4LjA1OS0xOCAxOHM4LjA1OSAxOCAxOCAxOGM5Ljk0MSAwIDE4LTguMDU5IDE4LTE4cy04LjA1OS0xOC0xOC0xOHptMCAzMmMtNy43MzIgMC0xNC02LjI2OC0xNC0xNHM2LjI2OC0xNCAxNC0xNCAxNCA2LjI2OCAxNCAxNC02LjI2OCAxNC0xNCAxNHoiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iLjA1Ii8+PC9nPjwvc3ZnPg==')] opacity-30"></div>
         
         <div className="relative flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -188,7 +188,7 @@ export default function QuotationDetails() {
         <div className="lg:col-span-2 space-y-6">
           {/* Policy Period Card */}
           <Card className="overflow-hidden border-0 shadow-card">
-            <CardHeader className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-b">
+            <CardHeader className="bg-blue-500/10 border-b">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <div className="p-2 rounded-lg bg-blue-500/20">
                   <Calendar className="w-5 h-5 text-blue-600" />
@@ -203,8 +203,8 @@ export default function QuotationDetails() {
                   <p className="text-xl font-semibold">{format(new Date(quotation.start_date), "dd MMM yyyy")}</p>
                 </div>
                 <div className="hidden md:flex items-center justify-center">
-                  <div className="w-12 h-0.5 bg-gradient-to-r from-primary to-accent"></div>
-                  <div className="w-3 h-3 rounded-full bg-accent"></div>
+                  <div className="w-12 h-0.5 bg-primary"></div>
+                  <div className="w-3 h-3 rounded-full bg-primary"></div>
                 </div>
                 <div className="flex-1 p-4 bg-muted/30 rounded-xl text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">End Date</p>
@@ -216,7 +216,7 @@ export default function QuotationDetails() {
 
           {/* Benefits Coverage Card */}
           <Card className="overflow-hidden border-0 shadow-card">
-            <CardHeader className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border-b">
+            <CardHeader className="bg-emerald-500/10 border-b">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <div className="p-2 rounded-lg bg-emerald-500/20">
                   <Shield className="w-5 h-5 text-emerald-600" />
@@ -255,7 +255,7 @@ export default function QuotationDetails() {
 
           {/* Insured Groups Card */}
           <Card className="overflow-hidden border-0 shadow-card">
-            <CardHeader className="bg-gradient-to-r from-violet-500/10 to-purple-500/10 border-b">
+            <CardHeader className="bg-violet-500/10 border-b">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <div className="p-2 rounded-lg bg-violet-500/20">
                   <Users className="w-5 h-5 text-violet-600" />
@@ -295,7 +295,7 @@ export default function QuotationDetails() {
         <div className="space-y-6">
           {/* Insurance Companies Card */}
           <Card className="overflow-hidden border-0 shadow-card">
-            <CardHeader className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-b">
+            <CardHeader className="bg-amber-500/10 border-b">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <div className="p-2 rounded-lg bg-amber-500/20">
                   <Building2 className="w-5 h-5 text-amber-600" />
@@ -308,7 +308,7 @@ export default function QuotationDetails() {
                 {quotation.insurance_companies?.map((insurer: string) => (
                   <div
                     key={insurer}
-                    className="p-3 bg-gradient-to-r from-primary/5 to-accent/5 border border-primary/20 rounded-xl"
+                    className="p-3 bg-primary/5 border border-primary/20 rounded-xl"
                   >
                     <p className="text-sm font-medium text-foreground">
                       {getInsuranceCompanyName(insurer)}
@@ -322,7 +322,7 @@ export default function QuotationDetails() {
 
           {/* Approval Status Card */}
           <Card className="overflow-hidden border-0 shadow-card">
-            <CardHeader className="bg-gradient-to-r from-rose-500/10 to-pink-500/10 border-b">
+            <CardHeader className="bg-rose-500/10 border-b">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <div className="p-2 rounded-lg bg-rose-500/20">
                   <ClipboardCheck className="w-5 h-5 text-rose-600" />
@@ -341,7 +341,7 @@ export default function QuotationDetails() {
 
           {/* Metadata Card */}
           <Card className="overflow-hidden border-0 shadow-card">
-            <CardHeader className="bg-gradient-to-r from-slate-500/10 to-gray-500/10 border-b">
+            <CardHeader className="bg-slate-500/10 border-b">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <div className="p-2 rounded-lg bg-slate-500/20">
                   <FileText className="w-5 h-5 text-slate-600" />

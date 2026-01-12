@@ -115,7 +115,7 @@ export function RecentQuotations() {
 
   return (
     <div className="bg-card rounded-xl border shadow-card overflow-hidden">
-      <div className="p-4 md:p-6 border-b bg-gradient-to-r from-muted/50 to-transparent">
+      <div className="p-4 md:p-6 border-b bg-muted/50">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold">Recent Quotations</h2>

@@ -155,7 +155,7 @@ export default function UserManagement() {
   return (
     <div className="space-y-6 animate-fade-in pb-8">
       {/* Hero Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[hsl(var(--primary))] via-[hsl(var(--primary)/0.8)] to-[#64D3D8] p-6 md:p-8 text-white">
+      <div className="relative overflow-hidden rounded-2xl bg-primary p-6 md:p-8 text-white">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMtOS45NDEgMC0xOCA4LjA1OS0xOCAxOHM4LjA1OSAxOCAxOCAxOCAxOC04LjA1OSAxOC0xOC04LjA1OS0xOC0xOC0xOHptMCAzMmMtNy43MzIgMC0xNC02LjI2OC0xNC0xNHM2LjI2OC0xNCAxNC0xNCAxNCA2LjI2OCAxNCAxNC02LjI2OCAxNC0xNCAxNHoiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iLjA1Ii8+PC9nPjwvc3ZnPg==')] opacity-30" />
         
         <div className="relative z-10">
@@ -182,7 +182,7 @@ export default function UserManagement() {
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="group hover:shadow-lg transition-all duration-300 border-l-4 border-l-primary bg-gradient-to-br from-primary/5 to-white dark:to-background">
+        <Card className="group hover:shadow-lg transition-all duration-300 border-l-4 border-l-primary bg-primary/5">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl bg-primary/10 text-primary group-hover:scale-110 transition-transform">
@@ -196,7 +196,7 @@ export default function UserManagement() {
           </CardContent>
         </Card>
 
-        <Card className="group hover:shadow-lg transition-all duration-300 border-l-4 border-l-emerald-500 bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/20 dark:to-background">
+        <Card className="group hover:shadow-lg transition-all duration-300 border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950/20">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
@@ -210,7 +210,7 @@ export default function UserManagement() {
           </CardContent>
         </Card>
 
-        <Card className="group hover:shadow-lg transition-all duration-300 border-l-4 border-l-gray-400 bg-gradient-to-br from-gray-50 to-white dark:from-gray-950/20 dark:to-background">
+        <Card className="group hover:shadow-lg transition-all duration-300 border-l-4 border-l-gray-400 bg-gray-50 dark:bg-gray-950/20">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl bg-gray-100 dark:bg-gray-900/30 text-gray-600 dark:text-gray-400 group-hover:scale-110 transition-transform">
@@ -224,7 +224,7 @@ export default function UserManagement() {
           </CardContent>
         </Card>
 
-        <Card className="group hover:shadow-lg transition-all duration-300 border-l-4 border-l-amber-500 bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/20 dark:to-background">
+        <Card className="group hover:shadow-lg transition-all duration-300 border-l-4 border-l-amber-500 bg-amber-50 dark:bg-amber-950/20">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform">
@@ -264,7 +264,7 @@ export default function UserManagement() {
               <div className="p-4 pb-3 border-b border-border/50 bg-muted/30">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-xl font-semibold text-primary">
+                    <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-xl font-semibold text-primary">
                       {profile.full_name.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
