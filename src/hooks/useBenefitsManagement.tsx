@@ -1,0 +1,260 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
+
+// Type definitions based on the new tables
+export interface BenefitType {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  is_mandatory: boolean;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlanTier {
+  id: string;
+  benefit_type_id: string;
+  name: string;
+  limit_value: number;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  benefit_type?: BenefitType;
+}
+
+export interface BenefitsOption {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Fetch all benefit types
+export function useBenefitTypes(activeOnly = true) {
+  return useQuery({
+    queryKey: ["benefit_types", activeOnly],
+    queryFn: async () => {
+      let query = supabase
+        .from("benefit_types")
+        .select("*")
+        .order("display_order", { ascending: true });
+      
+      if (activeOnly) {
+        query = query.eq("is_active", true);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as BenefitType[];
+    },
+  });
+}
+
+// Fetch plan tiers for a specific benefit type or all
+export function usePlanTiers(benefitTypeId?: string, activeOnly = true) {
+  return useQuery({
+    queryKey: ["plan_tiers", benefitTypeId, activeOnly],
+    queryFn: async () => {
+      let query = supabase
+        .from("plan_tiers")
+        .select("*, benefit_type:benefit_types(*)")
+        .order("display_order", { ascending: true });
+      
+      if (benefitTypeId) {
+        query = query.eq("benefit_type_id", benefitTypeId);
+      }
+      
+      if (activeOnly) {
+        query = query.eq("is_active", true);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as PlanTier[];
+    },
+  });
+}
+
+// Fetch all benefits options
+export function useBenefitsOptions(activeOnly = true) {
+  return useQuery({
+    queryKey: ["benefits_options", activeOnly],
+    queryFn: async () => {
+      let query = supabase
+        .from("benefits_options")
+        .select("*")
+        .order("display_order", { ascending: true });
+      
+      if (activeOnly) {
+        query = query.eq("is_active", true);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as BenefitsOption[];
+    },
+  });
+}
+
+// Mutations for Benefit Types
+export function useCreateBenefitType() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: Omit<BenefitType, "id" | "created_at" | "updated_at">) => {
+      const { data: result, error } = await supabase
+        .from("benefit_types")
+        .insert(data)
+        .select()
+        .single();
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["benefit_types"] });
+    },
+  });
+}
+
+export function useUpdateBenefitType() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...data }: Partial<BenefitType> & { id: string }) => {
+      const { data: result, error } = await supabase
+        .from("benefit_types")
+        .update(data)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["benefit_types"] });
+    },
+  });
+}
+
+export function useDeleteBenefitType() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("benefit_types").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["benefit_types"] });
+      queryClient.invalidateQueries({ queryKey: ["plan_tiers"] });
+    },
+  });
+}
+
+// Mutations for Plan Tiers
+export function useCreatePlanTier() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: Omit<PlanTier, "id" | "created_at" | "updated_at" | "benefit_type">) => {
+      const { data: result, error } = await supabase
+        .from("plan_tiers")
+        .insert(data)
+        .select()
+        .single();
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["plan_tiers"] });
+    },
+  });
+}
+
+export function useUpdatePlanTier() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...data }: Partial<PlanTier> & { id: string }) => {
+      const { data: result, error } = await supabase
+        .from("plan_tiers")
+        .update(data)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["plan_tiers"] });
+    },
+  });
+}
+
+export function useDeletePlanTier() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("plan_tiers").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["plan_tiers"] });
+    },
+  });
+}
+
+// Mutations for Benefits Options
+export function useCreateBenefitsOption() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: Omit<BenefitsOption, "id" | "created_at" | "updated_at">) => {
+      const { data: result, error } = await supabase
+        .from("benefits_options")
+        .insert(data)
+        .select()
+        .single();
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["benefits_options"] });
+    },
+  });
+}
+
+export function useUpdateBenefitsOption() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...data }: Partial<BenefitsOption> & { id: string }) => {
+      const { data: result, error } = await supabase
+        .from("benefits_options")
+        .update(data)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["benefits_options"] });
+    },
+  });
+}
+
+export function useDeleteBenefitsOption() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("benefits_options").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["benefits_options"] });
+    },
+  });
+}

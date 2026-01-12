@@ -59,6 +59,75 @@ export type Database = {
           },
         ]
       }
+      benefit_types: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          is_mandatory: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          is_mandatory?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          is_mandatory?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      benefits_options: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       insurance_companies: {
         Row: {
           code: string
@@ -126,6 +195,47 @@ export type Database = {
             columns: ["quotation_id"]
             isOneToOne: false
             referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plan_tiers: {
+        Row: {
+          benefit_type_id: string
+          created_at: string
+          display_order: number
+          id: string
+          is_active: boolean
+          limit_value: number
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          benefit_type_id: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          limit_value: number
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          benefit_type_id?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          limit_value?: number
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_tiers_benefit_type_id_fkey"
+            columns: ["benefit_type_id"]
+            isOneToOne: false
+            referencedRelation: "benefit_types"
             referencedColumns: ["id"]
           },
         ]
