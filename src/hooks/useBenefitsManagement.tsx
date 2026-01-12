@@ -38,6 +38,31 @@ export interface BenefitsOption {
   updated_at: string;
 }
 
+export interface CoverageItem {
+  id: string;
+  plan_tier_id: string;
+  name: string;
+  description: string | null;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  plan_tier?: PlanTier;
+  coverage_values?: CoverageValue[];
+}
+
+export interface CoverageValue {
+  id: string;
+  coverage_item_id: string;
+  benefits_option_id: string;
+  value: number;
+  value_type: 'amount' | 'percentage' | 'as_charged' | 'not_covered';
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  benefits_option?: BenefitsOption;
+}
+
 // Fetch all benefit types
 export function useBenefitTypes(activeOnly = true) {
   return useQuery({
@@ -255,6 +280,114 @@ export function useDeleteBenefitsOption() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["benefits_options"] });
+    },
+  });
+}
+
+// Fetch coverage items for a plan tier
+export function useCoverageItems(planTierId?: string, activeOnly = true) {
+  return useQuery({
+    queryKey: ["coverage_items", planTierId, activeOnly],
+    queryFn: async () => {
+      let query = supabase
+        .from("coverage_items")
+        .select("*, coverage_values(*, benefits_option:benefits_options(*))")
+        .order("display_order", { ascending: true });
+      
+      if (planTierId) {
+        query = query.eq("plan_tier_id", planTierId);
+      }
+      
+      if (activeOnly) {
+        query = query.eq("is_active", true);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as CoverageItem[];
+    },
+  });
+}
+
+// Mutations for Coverage Items
+export function useCreateCoverageItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: Omit<CoverageItem, "id" | "created_at" | "updated_at" | "plan_tier" | "coverage_values">) => {
+      const { data: result, error } = await supabase
+        .from("coverage_items")
+        .insert(data)
+        .select()
+        .single();
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["coverage_items"] });
+    },
+  });
+}
+
+export function useUpdateCoverageItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...data }: Partial<CoverageItem> & { id: string }) => {
+      const { data: result, error } = await supabase
+        .from("coverage_items")
+        .update(data)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["coverage_items"] });
+    },
+  });
+}
+
+export function useDeleteCoverageItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("coverage_items").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["coverage_items"] });
+    },
+  });
+}
+
+// Mutations for Coverage Values
+export function useUpsertCoverageValue() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: Omit<CoverageValue, "id" | "created_at" | "updated_at" | "benefits_option">) => {
+      const { data: result, error } = await supabase
+        .from("coverage_values")
+        .upsert(data, { onConflict: "coverage_item_id,benefits_option_id" })
+        .select()
+        .single();
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["coverage_items"] });
+    },
+  });
+}
+
+export function useDeleteCoverageValue() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("coverage_values").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["coverage_items"] });
     },
   });
 }

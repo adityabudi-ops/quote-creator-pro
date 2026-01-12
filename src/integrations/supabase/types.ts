@@ -128,6 +128,95 @@ export type Database = {
         }
         Relationships: []
       }
+      coverage_items: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          name: string
+          plan_tier_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          plan_tier_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          plan_tier_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coverage_items_plan_tier_id_fkey"
+            columns: ["plan_tier_id"]
+            isOneToOne: false
+            referencedRelation: "plan_tiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coverage_values: {
+        Row: {
+          benefits_option_id: string
+          coverage_item_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          updated_at: string
+          value: number
+          value_type: string
+        }
+        Insert: {
+          benefits_option_id: string
+          coverage_item_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+          value?: number
+          value_type?: string
+        }
+        Update: {
+          benefits_option_id?: string
+          coverage_item_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+          value?: number
+          value_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coverage_values_benefits_option_id_fkey"
+            columns: ["benefits_option_id"]
+            isOneToOne: false
+            referencedRelation: "benefits_options"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coverage_values_coverage_item_id_fkey"
+            columns: ["coverage_item_id"]
+            isOneToOne: false
+            referencedRelation: "coverage_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       insurance_companies: {
         Row: {
           code: string
