@@ -59,161 +59,47 @@ export type Database = {
           },
         ]
       }
-      benefit_types: {
+      fees_tax: {
         Row: {
-          code: string
+          admin_fee: number
           created_at: string
-          description: string | null
-          display_order: number
+          effective_date: string
           id: string
-          is_active: boolean
-          is_mandatory: boolean
-          name: string
-          updated_at: string
-        }
-        Insert: {
-          code: string
-          created_at?: string
-          description?: string | null
-          display_order?: number
-          id?: string
-          is_active?: boolean
-          is_mandatory?: boolean
-          name: string
-          updated_at?: string
-        }
-        Update: {
-          code?: string
-          created_at?: string
-          description?: string | null
-          display_order?: number
-          id?: string
-          is_active?: boolean
-          is_mandatory?: boolean
-          name?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      benefits_options: {
-        Row: {
-          code: string
-          created_at: string
-          description: string | null
-          display_order: number
-          id: string
-          is_active: boolean
-          name: string
-          updated_at: string
-        }
-        Insert: {
-          code: string
-          created_at?: string
-          description?: string | null
-          display_order?: number
-          id?: string
-          is_active?: boolean
-          name: string
-          updated_at?: string
-        }
-        Update: {
-          code?: string
-          created_at?: string
-          description?: string | null
-          display_order?: number
-          id?: string
-          is_active?: boolean
-          name?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      coverage_items: {
-        Row: {
-          created_at: string
-          description: string | null
-          display_order: number
-          id: string
-          is_active: boolean
-          name: string
-          plan_tier_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          display_order?: number
-          id?: string
-          is_active?: boolean
-          name: string
-          plan_tier_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          display_order?: number
-          id?: string
-          is_active?: boolean
-          name?: string
-          plan_tier_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "coverage_items_plan_tier_id_fkey"
-            columns: ["plan_tier_id"]
-            isOneToOne: false
-            referencedRelation: "plan_tiers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      coverage_values: {
-        Row: {
-          benefits_option_id: string
-          coverage_item_id: string
-          created_at: string
-          id: string
+          insurer_code: string
           notes: string | null
+          stamp_duty: number
           updated_at: string
-          value: number
-          value_type: string
+          vat_percent: number
         }
         Insert: {
-          benefits_option_id: string
-          coverage_item_id: string
+          admin_fee?: number
           created_at?: string
+          effective_date: string
           id?: string
+          insurer_code: string
           notes?: string | null
+          stamp_duty?: number
           updated_at?: string
-          value?: number
-          value_type?: string
+          vat_percent?: number
         }
         Update: {
-          benefits_option_id?: string
-          coverage_item_id?: string
+          admin_fee?: number
           created_at?: string
+          effective_date?: string
           id?: string
+          insurer_code?: string
           notes?: string | null
+          stamp_duty?: number
           updated_at?: string
-          value?: number
-          value_type?: string
+          vat_percent?: number
         }
         Relationships: [
           {
-            foreignKeyName: "coverage_values_benefits_option_id_fkey"
-            columns: ["benefits_option_id"]
+            foreignKeyName: "fees_tax_insurer_code_fkey"
+            columns: ["insurer_code"]
             isOneToOne: false
-            referencedRelation: "benefits_options"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "coverage_values_coverage_item_id_fkey"
-            columns: ["coverage_item_id"]
-            isOneToOne: false
-            referencedRelation: "coverage_items"
-            referencedColumns: ["id"]
+            referencedRelation: "master_insurer"
+            referencedColumns: ["insurer_code"]
           },
         ]
       }
@@ -243,6 +129,176 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      master_benefit_item: {
+        Row: {
+          created_at: string
+          display_order: number
+          is_active: boolean
+          is_group_header: boolean
+          item_code: string
+          item_name: string
+          limit_period: string | null
+          parent_item_code: string | null
+          section_code: string
+          sub_label: string | null
+          unit_text: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          is_active?: boolean
+          is_group_header?: boolean
+          item_code: string
+          item_name: string
+          limit_period?: string | null
+          parent_item_code?: string | null
+          section_code: string
+          sub_label?: string | null
+          unit_text?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          is_active?: boolean
+          is_group_header?: boolean
+          item_code?: string
+          item_name?: string
+          limit_period?: string | null
+          parent_item_code?: string | null
+          section_code?: string
+          sub_label?: string | null
+          unit_text?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "master_benefit_item_parent_item_code_fkey"
+            columns: ["parent_item_code"]
+            isOneToOne: false
+            referencedRelation: "master_benefit_item"
+            referencedColumns: ["item_code"]
+          },
+          {
+            foreignKeyName: "master_benefit_item_section_code_fkey"
+            columns: ["section_code"]
+            isOneToOne: false
+            referencedRelation: "master_benefit_section"
+            referencedColumns: ["section_code"]
+          },
+        ]
+      }
+      master_benefit_section: {
+        Row: {
+          created_at: string
+          display_order: number
+          is_active: boolean
+          section_code: string
+          section_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          is_active?: boolean
+          section_code: string
+          section_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          is_active?: boolean
+          section_code?: string
+          section_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      master_coverage_rule: {
+        Row: {
+          coverage_rule_code: string
+          coverage_rule_name: string
+          created_at: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          coverage_rule_code: string
+          coverage_rule_name: string
+          created_at?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          coverage_rule_code?: string
+          coverage_rule_name?: string
+          created_at?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      master_insurer: {
+        Row: {
+          created_at: string
+          insurer_code: string
+          insurer_name: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          insurer_code: string
+          insurer_name: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          insurer_code?: string
+          insurer_name?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      master_tier: {
+        Row: {
+          created_at: string
+          is_active: boolean
+          section_code: string
+          tier_code: string
+          tier_label: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          is_active?: boolean
+          section_code: string
+          tier_code: string
+          tier_label: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          is_active?: boolean
+          section_code?: string
+          tier_code?: string
+          tier_label?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "master_tier_section_code_fkey"
+            columns: ["section_code"]
+            isOneToOne: false
+            referencedRelation: "master_benefit_section"
+            referencedColumns: ["section_code"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -288,80 +344,71 @@ export type Database = {
           },
         ]
       }
-      plan_tier_options: {
+      pricing_section_age: {
         Row: {
-          benefits_option_id: string
+          annual_premium: number
+          coverage_rule_code: string
           created_at: string
-          id: string
-          plan_tier_id: string
-        }
-        Insert: {
-          benefits_option_id: string
-          created_at?: string
-          id?: string
-          plan_tier_id: string
-        }
-        Update: {
-          benefits_option_id?: string
-          created_at?: string
-          id?: string
-          plan_tier_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "plan_tier_options_benefits_option_id_fkey"
-            columns: ["benefits_option_id"]
-            isOneToOne: false
-            referencedRelation: "benefits_options"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "plan_tier_options_plan_tier_id_fkey"
-            columns: ["plan_tier_id"]
-            isOneToOne: false
-            referencedRelation: "plan_tiers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      plan_tiers: {
-        Row: {
-          benefit_type_id: string
-          created_at: string
-          display_order: number
-          id: string
-          is_active: boolean
-          limit_value: number
-          name: string
+          currency: string
+          demographic: Database["public"]["Enums"]["demographic_type"]
+          effective_date: string
+          insurer_code: string
+          section_code: string
+          tier_code: string
           updated_at: string
         }
         Insert: {
-          benefit_type_id: string
+          annual_premium?: number
+          coverage_rule_code: string
           created_at?: string
-          display_order?: number
-          id?: string
-          is_active?: boolean
-          limit_value: number
-          name: string
+          currency?: string
+          demographic: Database["public"]["Enums"]["demographic_type"]
+          effective_date: string
+          insurer_code: string
+          section_code: string
+          tier_code: string
           updated_at?: string
         }
         Update: {
-          benefit_type_id?: string
+          annual_premium?: number
+          coverage_rule_code?: string
           created_at?: string
-          display_order?: number
-          id?: string
-          is_active?: boolean
-          limit_value?: number
-          name?: string
+          currency?: string
+          demographic?: Database["public"]["Enums"]["demographic_type"]
+          effective_date?: string
+          insurer_code?: string
+          section_code?: string
+          tier_code?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "plan_tiers_benefit_type_id_fkey"
-            columns: ["benefit_type_id"]
+            foreignKeyName: "pricing_section_age_coverage_rule_code_fkey"
+            columns: ["coverage_rule_code"]
             isOneToOne: false
-            referencedRelation: "benefit_types"
-            referencedColumns: ["id"]
+            referencedRelation: "master_coverage_rule"
+            referencedColumns: ["coverage_rule_code"]
+          },
+          {
+            foreignKeyName: "pricing_section_age_insurer_code_fkey"
+            columns: ["insurer_code"]
+            isOneToOne: false
+            referencedRelation: "master_insurer"
+            referencedColumns: ["insurer_code"]
+          },
+          {
+            foreignKeyName: "pricing_section_age_section_code_fkey"
+            columns: ["section_code"]
+            isOneToOne: false
+            referencedRelation: "master_benefit_section"
+            referencedColumns: ["section_code"]
+          },
+          {
+            foreignKeyName: "pricing_section_age_tier_code_fkey"
+            columns: ["tier_code"]
+            isOneToOne: false
+            referencedRelation: "master_tier"
+            referencedColumns: ["tier_code"]
           },
         ]
       }
@@ -401,10 +448,465 @@ export type Database = {
         }
         Relationships: []
       }
+      quotation_benefit_schedule_item: {
+        Row: {
+          created_at: string
+          currency: string | null
+          display_order: number
+          id: string
+          insurer_code: string
+          is_group_header: boolean
+          item_code: string
+          item_name: string
+          limit_period: string | null
+          package_id: string
+          quotation_id: string
+          section_code: string
+          sub_label: string | null
+          unit_text: string | null
+          value_amount: number | null
+          value_text: string | null
+          value_type: Database["public"]["Enums"]["value_type"]
+        }
+        Insert: {
+          created_at?: string
+          currency?: string | null
+          display_order?: number
+          id?: string
+          insurer_code: string
+          is_group_header?: boolean
+          item_code: string
+          item_name: string
+          limit_period?: string | null
+          package_id: string
+          quotation_id: string
+          section_code: string
+          sub_label?: string | null
+          unit_text?: string | null
+          value_amount?: number | null
+          value_text?: string | null
+          value_type?: Database["public"]["Enums"]["value_type"]
+        }
+        Update: {
+          created_at?: string
+          currency?: string | null
+          display_order?: number
+          id?: string
+          insurer_code?: string
+          is_group_header?: boolean
+          item_code?: string
+          item_name?: string
+          limit_period?: string | null
+          package_id?: string
+          quotation_id?: string
+          section_code?: string
+          sub_label?: string | null
+          unit_text?: string | null
+          value_amount?: number | null
+          value_text?: string | null
+          value_type?: Database["public"]["Enums"]["value_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_benefit_schedule_item_insurer_code_fkey"
+            columns: ["insurer_code"]
+            isOneToOne: false
+            referencedRelation: "master_insurer"
+            referencedColumns: ["insurer_code"]
+          },
+          {
+            foreignKeyName: "quotation_benefit_schedule_item_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_package"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "quotation_benefit_schedule_item_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_benefit_schedule_item_section_code_fkey"
+            columns: ["section_code"]
+            isOneToOne: false
+            referencedRelation: "master_benefit_section"
+            referencedColumns: ["section_code"]
+          },
+        ]
+      }
+      quotation_package: {
+        Row: {
+          created_at: string
+          package_description: string | null
+          package_id: string
+          package_name: string
+          quotation_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          package_description?: string | null
+          package_id?: string
+          package_name: string
+          quotation_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          package_description?: string | null
+          package_id?: string
+          package_name?: string
+          quotation_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_package_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotation_package_census: {
+        Row: {
+          created_at: string
+          demographic: Database["public"]["Enums"]["demographic_type"]
+          lives: number
+          package_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          demographic: Database["public"]["Enums"]["demographic_type"]
+          lives?: number
+          package_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          demographic?: Database["public"]["Enums"]["demographic_type"]
+          lives?: number
+          package_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_package_census_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_package"
+            referencedColumns: ["package_id"]
+          },
+        ]
+      }
+      quotation_package_insurer_offer: {
+        Row: {
+          created_at: string
+          insurer_code: string
+          notes: string | null
+          offer_id: string
+          offered_tier_code: string | null
+          package_id: string
+          pricing_effective_date_used: string | null
+          section_code: string
+          status: Database["public"]["Enums"]["offer_status"]
+          template_id_used: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          insurer_code: string
+          notes?: string | null
+          offer_id?: string
+          offered_tier_code?: string | null
+          package_id: string
+          pricing_effective_date_used?: string | null
+          section_code: string
+          status?: Database["public"]["Enums"]["offer_status"]
+          template_id_used?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          insurer_code?: string
+          notes?: string | null
+          offer_id?: string
+          offered_tier_code?: string | null
+          package_id?: string
+          pricing_effective_date_used?: string | null
+          section_code?: string
+          status?: Database["public"]["Enums"]["offer_status"]
+          template_id_used?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_package_insurer_offer_insurer_code_fkey"
+            columns: ["insurer_code"]
+            isOneToOne: false
+            referencedRelation: "master_insurer"
+            referencedColumns: ["insurer_code"]
+          },
+          {
+            foreignKeyName: "quotation_package_insurer_offer_offered_tier_code_fkey"
+            columns: ["offered_tier_code"]
+            isOneToOne: false
+            referencedRelation: "master_tier"
+            referencedColumns: ["tier_code"]
+          },
+          {
+            foreignKeyName: "quotation_package_insurer_offer_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_package"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "quotation_package_insurer_offer_section_code_fkey"
+            columns: ["section_code"]
+            isOneToOne: false
+            referencedRelation: "master_benefit_section"
+            referencedColumns: ["section_code"]
+          },
+          {
+            foreignKeyName: "quotation_package_insurer_offer_template_id_used_fkey"
+            columns: ["template_id_used"]
+            isOneToOne: false
+            referencedRelation: "schedule_template_section_header"
+            referencedColumns: ["template_id"]
+          },
+        ]
+      }
+      quotation_package_requested_tier: {
+        Row: {
+          created_at: string
+          package_id: string
+          requested_tier_code: string | null
+          section_code: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          package_id: string
+          requested_tier_code?: string | null
+          section_code: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          package_id?: string
+          requested_tier_code?: string | null
+          section_code?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_package_requested_tier_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_package"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "quotation_package_requested_tier_requested_tier_code_fkey"
+            columns: ["requested_tier_code"]
+            isOneToOne: false
+            referencedRelation: "master_tier"
+            referencedColumns: ["tier_code"]
+          },
+          {
+            foreignKeyName: "quotation_package_requested_tier_section_code_fkey"
+            columns: ["section_code"]
+            isOneToOne: false
+            referencedRelation: "master_benefit_section"
+            referencedColumns: ["section_code"]
+          },
+        ]
+      }
+      quotation_premium_detail: {
+        Row: {
+          annual_premium_per_member: number
+          annual_premium_total: number
+          created_at: string
+          demographic: Database["public"]["Enums"]["demographic_type"]
+          id: string
+          insurer_code: string
+          lives: number
+          package_id: string
+          quotation_id: string
+          section_code: string
+        }
+        Insert: {
+          annual_premium_per_member?: number
+          annual_premium_total?: number
+          created_at?: string
+          demographic: Database["public"]["Enums"]["demographic_type"]
+          id?: string
+          insurer_code: string
+          lives?: number
+          package_id: string
+          quotation_id: string
+          section_code: string
+        }
+        Update: {
+          annual_premium_per_member?: number
+          annual_premium_total?: number
+          created_at?: string
+          demographic?: Database["public"]["Enums"]["demographic_type"]
+          id?: string
+          insurer_code?: string
+          lives?: number
+          package_id?: string
+          quotation_id?: string
+          section_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_premium_detail_insurer_code_fkey"
+            columns: ["insurer_code"]
+            isOneToOne: false
+            referencedRelation: "master_insurer"
+            referencedColumns: ["insurer_code"]
+          },
+          {
+            foreignKeyName: "quotation_premium_detail_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_package"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "quotation_premium_detail_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_premium_detail_section_code_fkey"
+            columns: ["section_code"]
+            isOneToOne: false
+            referencedRelation: "master_benefit_section"
+            referencedColumns: ["section_code"]
+          },
+        ]
+      }
+      quotation_premium_overall: {
+        Row: {
+          admin_fee: number | null
+          created_at: string
+          grand_total: number
+          gross_total_all_packages: number
+          id: string
+          insurer_code: string
+          quotation_id: string
+          stamp_duty: number | null
+          vat_amount: number | null
+        }
+        Insert: {
+          admin_fee?: number | null
+          created_at?: string
+          grand_total?: number
+          gross_total_all_packages?: number
+          id?: string
+          insurer_code: string
+          quotation_id: string
+          stamp_duty?: number | null
+          vat_amount?: number | null
+        }
+        Update: {
+          admin_fee?: number | null
+          created_at?: string
+          grand_total?: number
+          gross_total_all_packages?: number
+          id?: string
+          insurer_code?: string
+          quotation_id?: string
+          stamp_duty?: number | null
+          vat_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_premium_overall_insurer_code_fkey"
+            columns: ["insurer_code"]
+            isOneToOne: false
+            referencedRelation: "master_insurer"
+            referencedColumns: ["insurer_code"]
+          },
+          {
+            foreignKeyName: "quotation_premium_overall_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotation_premium_summary: {
+        Row: {
+          created_at: string
+          fees_package: number | null
+          gross_premium_package: number
+          id: string
+          insurer_code: string
+          package_id: string
+          quotation_id: string
+          tax_package: number | null
+        }
+        Insert: {
+          created_at?: string
+          fees_package?: number | null
+          gross_premium_package?: number
+          id?: string
+          insurer_code: string
+          package_id: string
+          quotation_id: string
+          tax_package?: number | null
+        }
+        Update: {
+          created_at?: string
+          fees_package?: number | null
+          gross_premium_package?: number
+          id?: string
+          insurer_code?: string
+          package_id?: string
+          quotation_id?: string
+          tax_package?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_premium_summary_insurer_code_fkey"
+            columns: ["insurer_code"]
+            isOneToOne: false
+            referencedRelation: "master_insurer"
+            referencedColumns: ["insurer_code"]
+          },
+          {
+            foreignKeyName: "quotation_premium_summary_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_package"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "quotation_premium_summary_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quotations: {
         Row: {
           benefits: Json
           benefits_option: string
+          coverage_rule_code: string | null
           created_at: string
           created_by: string
           end_date: string
@@ -422,6 +924,7 @@ export type Database = {
         Insert: {
           benefits: Json
           benefits_option: string
+          coverage_rule_code?: string | null
           created_at?: string
           created_by: string
           end_date: string
@@ -439,6 +942,7 @@ export type Database = {
         Update: {
           benefits?: Json
           benefits_option?: string
+          coverage_rule_code?: string | null
           created_at?: string
           created_by?: string
           end_date?: string
@@ -455,11 +959,143 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "quotations_coverage_rule_code_fkey"
+            columns: ["coverage_rule_code"]
+            isOneToOne: false
+            referencedRelation: "master_coverage_rule"
+            referencedColumns: ["coverage_rule_code"]
+          },
+          {
             foreignKeyName: "quotations_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      schedule_template_section_header: {
+        Row: {
+          coverage_rule_code: string
+          created_at: string
+          effective_date: string
+          insurer_code: string
+          notes: string | null
+          section_code: string
+          status: Database["public"]["Enums"]["template_status"]
+          template_id: string
+          tier_code: string
+          updated_at: string
+        }
+        Insert: {
+          coverage_rule_code: string
+          created_at?: string
+          effective_date: string
+          insurer_code: string
+          notes?: string | null
+          section_code: string
+          status?: Database["public"]["Enums"]["template_status"]
+          template_id?: string
+          tier_code: string
+          updated_at?: string
+        }
+        Update: {
+          coverage_rule_code?: string
+          created_at?: string
+          effective_date?: string
+          insurer_code?: string
+          notes?: string | null
+          section_code?: string
+          status?: Database["public"]["Enums"]["template_status"]
+          template_id?: string
+          tier_code?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_template_section_header_coverage_rule_code_fkey"
+            columns: ["coverage_rule_code"]
+            isOneToOne: false
+            referencedRelation: "master_coverage_rule"
+            referencedColumns: ["coverage_rule_code"]
+          },
+          {
+            foreignKeyName: "schedule_template_section_header_insurer_code_fkey"
+            columns: ["insurer_code"]
+            isOneToOne: false
+            referencedRelation: "master_insurer"
+            referencedColumns: ["insurer_code"]
+          },
+          {
+            foreignKeyName: "schedule_template_section_header_section_code_fkey"
+            columns: ["section_code"]
+            isOneToOne: false
+            referencedRelation: "master_benefit_section"
+            referencedColumns: ["section_code"]
+          },
+          {
+            foreignKeyName: "schedule_template_section_header_tier_code_fkey"
+            columns: ["tier_code"]
+            isOneToOne: false
+            referencedRelation: "master_tier"
+            referencedColumns: ["tier_code"]
+          },
+        ]
+      }
+      schedule_template_section_item: {
+        Row: {
+          created_at: string
+          currency: string | null
+          display_order: number
+          item_code: string
+          limit_period: string | null
+          template_id: string
+          unit_text: string | null
+          updated_at: string
+          value_amount: number | null
+          value_text: string | null
+          value_type: Database["public"]["Enums"]["value_type"]
+        }
+        Insert: {
+          created_at?: string
+          currency?: string | null
+          display_order?: number
+          item_code: string
+          limit_period?: string | null
+          template_id: string
+          unit_text?: string | null
+          updated_at?: string
+          value_amount?: number | null
+          value_text?: string | null
+          value_type?: Database["public"]["Enums"]["value_type"]
+        }
+        Update: {
+          created_at?: string
+          currency?: string | null
+          display_order?: number
+          item_code?: string
+          limit_period?: string | null
+          template_id?: string
+          unit_text?: string | null
+          updated_at?: string
+          value_amount?: number | null
+          value_text?: string | null
+          value_type?: Database["public"]["Enums"]["value_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_template_section_item_item_code_fkey"
+            columns: ["item_code"]
+            isOneToOne: false
+            referencedRelation: "master_benefit_item"
+            referencedColumns: ["item_code"]
+          },
+          {
+            foreignKeyName: "schedule_template_section_item_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_template_section_header"
+            referencedColumns: ["template_id"]
           },
         ]
       }
@@ -482,6 +1118,8 @@ export type Database = {
     }
     Enums: {
       approval_role: "tenaga_pialang" | "tenaga_ahli"
+      demographic_type: "M_0_59" | "F_0_59" | "C_0_59" | "M_60_64" | "F_60_64"
+      offer_status: "QUOTED" | "NA" | "ERROR"
       quotation_status:
         | "draft"
         | "pending_pialang"
@@ -489,7 +1127,9 @@ export type Database = {
         | "approved"
         | "rejected"
         | "locked"
+      template_status: "ACTIVE" | "INACTIVE"
       user_role: "sales" | "tenaga_pialang" | "tenaga_ahli" | "admin"
+      value_type: "AMOUNT" | "TEXT" | "BOOLEAN" | "NONE"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -618,6 +1258,8 @@ export const Constants = {
   public: {
     Enums: {
       approval_role: ["tenaga_pialang", "tenaga_ahli"],
+      demographic_type: ["M_0_59", "F_0_59", "C_0_59", "M_60_64", "F_60_64"],
+      offer_status: ["QUOTED", "NA", "ERROR"],
       quotation_status: [
         "draft",
         "pending_pialang",
@@ -626,7 +1268,9 @@ export const Constants = {
         "rejected",
         "locked",
       ],
+      template_status: ["ACTIVE", "INACTIVE"],
       user_role: ["sales", "tenaga_pialang", "tenaga_ahli", "admin"],
+      value_type: ["AMOUNT", "TEXT", "BOOLEAN", "NONE"],
     },
   },
 } as const
