@@ -17,8 +17,7 @@ import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import UserManagement from "./pages/admin/UserManagement";
 import InsuranceCompanies from "./pages/admin/InsuranceCompanies";
-import BenefitsManagement from "./pages/admin/BenefitsManagement";
-import CoverageItemsManagement from "./pages/admin/CoverageItemsManagement";
+import MasterDataManagement from "./pages/admin/MasterDataManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -57,8 +56,7 @@ function AppRoutes() {
                 <Route path="/audit-log" element={<AuditLog />} />
                 <Route path="/admin/users" element={<UserManagement />} />
                 <Route path="/admin/insurance" element={<InsuranceCompanies />} />
-                <Route path="/admin/benefits" element={<BenefitsManagement />} />
-                <Route path="/admin/benefits/coverage/:planTierId" element={<CoverageItemsManagement />} />
+                <Route path="/admin/benefits" element={<MasterDataManagement />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
