@@ -361,7 +361,7 @@ export function useTiers(sectionCode?: string, activeOnly = true, insurerCode?: 
     queryFn: async () => {
       let query = supabase
         .from("master_tier")
-        .select("*, section:master_benefit_section(*), insurer:master_insurer(*)")
+        .select("*, section:master_benefit_section!master_tier_section_code_fkey(*), insurer:master_insurer!master_tier_insurer_code_fkey(*)")
         .order("insurer_code")
         .order("tier_code");
       
