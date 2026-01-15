@@ -1,21 +1,32 @@
 import { useParams, Link } from "react-router-dom";
 import { format } from "date-fns";
-import { ArrowLeft, Edit, Download, FileText, Users, Calendar, Shield, Building2, ClipboardCheck, Clock, User, Hash } from "lucide-react";
+import { ArrowLeft, Edit, Download, FileText, Users, Calendar, Shield, Building2, ClipboardCheck, Clock, User, Hash, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/quotation/StatusBadge";
 import { ApprovalInfo } from "@/components/quotation/ApprovalInfo";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useApprovalHistory, getApprovalByRole } from "@/hooks/useApprovalHistory";
-import { useInsuranceCompanies } from "@/hooks/useInsuranceCompanies";
+import { useInsurers } from "@/hooks/useMasterData";
+import { useQuotationPackages, useQuotationPremiums } from "@/hooks/useQuotationWorkflow";
+import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
 
 type QuotationStatus = Database["public"]["Enums"]["quotation_status"];
 
+const SECTION_LABELS: Record<string, string> = {
+  IP: "In-Patient",
+  OP: "Out-Patient",
+  DE: "Dental",
+  MA: "Maternity",
+};
+
 export default function QuotationDetails() {
   const { id } = useParams<{ id: string }>();
-  const { data: insuranceCompanies } = useInsuranceCompanies();
+  const { data: insurersList } = useInsurers(false);
   
   const { data: quotation, isLoading } = useQuery({
     queryKey: ["quotation", id],
@@ -37,7 +48,13 @@ export default function QuotationDetails() {
     enabled: !!id,
   });
 
+  const { data: packages } = useQuotationPackages(id || "");
+  const { data: premiums } = useQuotationPremiums(id || "");
   const { data: approvals } = useApprovalHistory(id);
+
+  const getInsurerName = (code: string): string => {
+    return insurersList?.find(i => i.insurer_code === code)?.insurer_name || code;
+  };
 
   if (isLoading) {
     return (
@@ -66,61 +83,74 @@ export default function QuotationDetails() {
   }
 
   const getTotalMembers = () => {
+    if (packages && packages.length > 0) {
+      return packages.reduce((sum, pkg) => {
+        const census = pkg.census as any[] || [];
+        return sum + census.reduce((s, c) => s + (c.lives || 0), 0);
+      }, 0);
+    }
+    // Fallback to legacy insured_groups
     const groups = quotation.insured_groups as any[];
     if (!groups) return 0;
-    // Only count In-Patient (IP) groups for total member count
     return groups
-      .filter(g => g.planName?.startsWith("IP"))
+      .filter(g => g.planName?.startsWith("IP") || g.planName?.startsWith("Package"))
       .reduce((sum, g) => {
         const m = g.members || {};
         return sum + (m.male0to59 || 0) + (m.female0to59 || 0) + (m.child0to59 || 0) + (m.male60to64 || 0) + (m.female60to64 || 0);
       }, 0);
   };
 
-  // Quotations can only be edited when in draft or rejected status
   const editableStatuses: QuotationStatus[] = ["draft", "rejected"];
   const canEdit = editableStatuses.includes(quotation.status);
   
   const benefits = quotation.benefits as any || {};
-  const insuredGroups = quotation.insured_groups as any[] || [];
-  
-  // Group insured groups by benefit type
-  const ipGroups = insuredGroups.filter(g => g.planName?.startsWith("IP"));
-  const opGroups = insuredGroups.filter(g => g.planName?.startsWith("OP"));
-  const deGroups = insuredGroups.filter(g => g.planName?.startsWith("DE"));
-  const maGroups = insuredGroups.filter(g => g.planName?.startsWith("MA"));
   
   const pialangApproval = approvals ? getApprovalByRole(approvals, "tenaga_pialang") : null;
   const ahliApproval = approvals ? getApprovalByRole(approvals, "tenaga_ahli") : null;
 
-  const getInsuranceCompanyName = (code: string) => {
-    const company = insuranceCompanies?.find(c => c.code === code);
-    return company?.name || code.toUpperCase();
+  // Build tier mapping from packages data
+  const buildTierMapping = () => {
+    if (!packages || packages.length === 0) return null;
+
+    const mapping: Record<string, Record<string, Record<string, { tierCode: string | null; status: string }>>> = {};
+    
+    packages.forEach(pkg => {
+      const offers = pkg.insurer_offers as any[] || [];
+      mapping[pkg.package_id] = {};
+      
+      offers.forEach(offer => {
+        if (!mapping[pkg.package_id][offer.insurer_code]) {
+          mapping[pkg.package_id][offer.insurer_code] = {};
+        }
+        mapping[pkg.package_id][offer.insurer_code][offer.section_code] = {
+          tierCode: offer.offered_tier_code,
+          status: offer.status,
+        };
+      });
+    });
+
+    return mapping;
   };
 
-  const getGroupTotal = (group: any) => {
-    const m = group.members || {};
-    return (m.male0to59 || 0) + (m.female0to59 || 0) + (m.child0to59 || 0) + (m.male60to64 || 0) + (m.female60to64 || 0);
+  const tierMapping = buildTierMapping();
+  const selectedSections = Object.keys(benefits).filter(k => benefits[k]) as string[];
+  const sectionCodes = selectedSections.map(s => {
+    if (s === "inPatient") return "IP";
+    if (s === "outPatient") return "OP";
+    if (s === "dental") return "DE";
+    if (s === "maternity") return "MA";
+    return s;
+  });
+
+  // Get requested tiers from first package
+  const getRequestedTiers = () => {
+    if (!packages || packages.length === 0) return {};
+    const firstPkg = packages[0];
+    const requested = firstPkg.requested_tiers as any[] || [];
+    return Object.fromEntries(requested.map(rt => [rt.section_code, rt.requested_tier_code]));
   };
 
-  const BenefitGroupTable = ({ groups, title, colorClass }: { groups: any[], title: string, colorClass: string }) => {
-    if (groups.length === 0) return null;
-    return (
-      <div className="space-y-2">
-        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${colorClass}`}>
-          {title}
-        </div>
-        <div className="space-y-2">
-          {groups.map((group, index) => (
-            <div key={group.id || index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border/50">
-              <span className="font-medium text-sm">{group.planName}</span>
-              <span className="text-sm text-muted-foreground">{getGroupTotal(group)} members</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
+  const requestedTiers = getRequestedTiers();
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -176,8 +206,8 @@ export default function QuotationDetails() {
             <p className="text-2xl font-bold">{quotation.insurance_companies?.length || 0}</p>
           </div>
           <div className="text-center md:text-left">
-            <p className="text-white/60 text-xs uppercase tracking-wider mb-1">Version</p>
-            <p className="text-2xl font-bold">v{quotation.version}</p>
+            <p className="text-white/60 text-xs uppercase tracking-wider mb-1">Packages</p>
+            <p className="text-2xl font-bold">{packages?.length || 1}</p>
           </div>
         </div>
       </div>
@@ -186,6 +216,146 @@ export default function QuotationDetails() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left Column - Main Details */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Tier Mapping Card - NEW */}
+          {tierMapping && Object.keys(tierMapping).length > 0 && (
+            <Card className="overflow-hidden border-0 shadow-card">
+              <CardHeader className="bg-indigo-500/10 border-b">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <div className="p-2 rounded-lg bg-indigo-500/20">
+                    <Layers className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  Tier Mapping by Insurer
+                  <span className="ml-auto text-xs font-normal text-muted-foreground">
+                    Shows offered tier per insurer per benefit
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                {packages?.map(pkg => (
+                  <div key={pkg.package_id} className="mb-6 last:mb-0">
+                    <h4 className="font-semibold mb-3">{pkg.package_name}</h4>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[100px]">Benefit</TableHead>
+                            <TableHead className="w-[80px]">Requested</TableHead>
+                            {quotation.insurance_companies?.map((code: string) => (
+                              <TableHead key={code} className="text-center min-w-[100px]">
+                                {getInsurerName(code)}
+                              </TableHead>
+                            ))}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {sectionCodes.map(sectionCode => {
+                            const requested = requestedTiers[sectionCode];
+                            return (
+                              <TableRow key={sectionCode}>
+                                <TableCell className="font-medium">
+                                  {SECTION_LABELS[sectionCode] || sectionCode}
+                                </TableCell>
+                                <TableCell className="text-muted-foreground text-sm">
+                                  {requested || "—"}
+                                </TableCell>
+                                {quotation.insurance_companies?.map((insurerCode: string) => {
+                                  const offer = tierMapping[pkg.package_id]?.[insurerCode]?.[sectionCode];
+                                  const isDifferent = requested && offer?.tierCode && offer.tierCode !== requested;
+                                  
+                                  return (
+                                    <TableCell key={insurerCode} className="text-center">
+                                      {offer?.status === "QUOTED" ? (
+                                        <Badge 
+                                          variant={isDifferent ? "secondary" : "default"}
+                                          className={cn(
+                                            "font-mono text-xs",
+                                            isDifferent && "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
+                                          )}
+                                        >
+                                          {offer.tierCode}
+                                        </Badge>
+                                      ) : (
+                                        <Badge variant="outline" className="text-muted-foreground text-xs">
+                                          N/A
+                                        </Badge>
+                                      )}
+                                    </TableCell>
+                                  );
+                                })}
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Legend */}
+                <div className="flex flex-wrap gap-4 text-xs mt-4 pt-4 border-t">
+                  <div className="flex items-center gap-2">
+                    <Badge className="text-xs">IP1500</Badge>
+                    <span className="text-muted-foreground">Matches requested</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-amber-100 text-amber-800 text-xs">IP1000</Badge>
+                    <span className="text-muted-foreground">Alternative offered</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-muted-foreground text-xs">N/A</Badge>
+                    <span className="text-muted-foreground">Not available</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Premium Comparison Card - NEW */}
+          {premiums && premiums.overalls && premiums.overalls.length > 0 && (
+            <Card className="overflow-hidden border-0 shadow-card">
+              <CardHeader className="bg-green-500/10 border-b">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <div className="p-2 rounded-lg bg-green-500/20">
+                    <FileText className="w-5 h-5 text-green-600" />
+                  </div>
+                  Annual Premium Comparison
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Insurer</TableHead>
+                        <TableHead className="text-right">Gross Premium</TableHead>
+                        <TableHead className="text-right">Fees & Tax</TableHead>
+                        <TableHead className="text-right">Grand Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {premiums.overalls.map((overall: any) => (
+                        <TableRow key={overall.insurer_code}>
+                          <TableCell className="font-medium">
+                            {getInsurerName(overall.insurer_code)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            Rp {overall.gross_total_all_packages?.toLocaleString() || 0}
+                          </TableCell>
+                          <TableCell className="text-right text-muted-foreground">
+                            Rp {((overall.admin_fee || 0) + (overall.stamp_duty || 0) + (overall.vat_amount || 0)).toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-right font-bold text-primary">
+                            Rp {overall.grand_total?.toLocaleString() || 0}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Policy Period Card */}
           <Card className="overflow-hidden border-0 shadow-card">
             <CardHeader className="bg-blue-500/10 border-b">
@@ -253,42 +423,46 @@ export default function QuotationDetails() {
             </CardContent>
           </Card>
 
-          {/* Insured Groups Card */}
-          <Card className="overflow-hidden border-0 shadow-card">
-            <CardHeader className="bg-violet-500/10 border-b">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <div className="p-2 rounded-lg bg-violet-500/20">
-                  <Users className="w-5 h-5 text-violet-600" />
-                </div>
-                Insured Groups
-                <span className="ml-auto px-3 py-1 text-sm font-semibold bg-primary/10 text-primary rounded-full">
-                  {getTotalMembers()} total members
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              <BenefitGroupTable 
-                groups={ipGroups} 
-                title="In-Patient" 
-                colorClass="bg-blue-100 text-blue-700"
-              />
-              <BenefitGroupTable 
-                groups={opGroups} 
-                title="Out-Patient" 
-                colorClass="bg-emerald-100 text-emerald-700"
-              />
-              <BenefitGroupTable 
-                groups={deGroups} 
-                title="Dental" 
-                colorClass="bg-amber-100 text-amber-700"
-              />
-              <BenefitGroupTable 
-                groups={maGroups} 
-                title="Maternity" 
-                colorClass="bg-pink-100 text-pink-700"
-              />
-            </CardContent>
-          </Card>
+          {/* Packages Card */}
+          {packages && packages.length > 0 && (
+            <Card className="overflow-hidden border-0 shadow-card">
+              <CardHeader className="bg-violet-500/10 border-b">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <div className="p-2 rounded-lg bg-violet-500/20">
+                    <Users className="w-5 h-5 text-violet-600" />
+                  </div>
+                  Packages & Census
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 space-y-4">
+                {packages.map(pkg => {
+                  const census = pkg.census as any[] || [];
+                  const totalLives = census.reduce((sum, c) => sum + (c.lives || 0), 0);
+                  return (
+                    <div key={pkg.package_id} className="p-4 bg-muted/30 rounded-xl">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h4 className="font-semibold">{pkg.package_name}</h4>
+                          {pkg.package_description && (
+                            <p className="text-sm text-muted-foreground">{pkg.package_description}</p>
+                          )}
+                        </div>
+                        <Badge variant="secondary">{totalLives} lives</Badge>
+                      </div>
+                      <div className="grid grid-cols-5 gap-2 text-sm">
+                        {census.map((c: any) => (
+                          <div key={c.demographic} className="text-center">
+                            <p className="text-xs text-muted-foreground">{c.demographic}</p>
+                            <p className="font-medium">{c.lives}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Right Column - Sidebar */}
@@ -311,7 +485,7 @@ export default function QuotationDetails() {
                     className="p-3 bg-primary/5 border border-primary/20 rounded-xl"
                   >
                     <p className="text-sm font-medium text-foreground">
-                      {getInsuranceCompanyName(insurer)}
+                      {getInsurerName(insurer)}
                     </p>
                     <p className="text-xs text-muted-foreground uppercase mt-0.5">{insurer}</p>
                   </div>
