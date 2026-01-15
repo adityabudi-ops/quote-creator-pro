@@ -34,10 +34,12 @@ export interface MasterTier {
   tier_code: string;
   section_code: string;
   tier_label: string;
+  insurer_code: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
   section?: MasterBenefitSection;
+  insurer?: MasterInsurer;
 }
 
 export interface MasterBenefitItem {
@@ -353,17 +355,22 @@ export function useDeleteBenefitSection() {
 // Tiers Hooks
 // ============================================
 
-export function useTiers(sectionCode?: string, activeOnly = true) {
+export function useTiers(sectionCode?: string, activeOnly = true, insurerCode?: string) {
   return useQuery({
-    queryKey: ["master_tier", sectionCode, activeOnly],
+    queryKey: ["master_tier", sectionCode, activeOnly, insurerCode],
     queryFn: async () => {
       let query = supabase
         .from("master_tier")
-        .select("*, section:master_benefit_section(*)")
+        .select("*, section:master_benefit_section(*), insurer:master_insurer(*)")
+        .order("insurer_code")
         .order("tier_code");
       
       if (sectionCode) {
         query = query.eq("section_code", sectionCode);
+      }
+      
+      if (insurerCode) {
+        query = query.eq("insurer_code", insurerCode);
       }
       
       if (activeOnly) {

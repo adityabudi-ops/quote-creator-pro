@@ -89,7 +89,10 @@ export default function MasterDataManagement() {
   const [ruleForm, setRuleForm] = useState({ coverage_rule_code: "", coverage_rule_name: "", is_active: true });
   const [insurerForm, setInsurerForm] = useState({ insurer_code: "", insurer_name: "", is_active: true });
   const [sectionForm, setSectionForm] = useState({ section_code: "", section_name: "", display_order: 0, is_active: true });
-  const [tierForm, setTierForm] = useState({ tier_code: "", section_code: "", tier_label: "", is_active: true });
+  const [tierForm, setTierForm] = useState({ tier_code: "", section_code: "", tier_label: "", insurer_code: "", is_active: true });
+  
+  // Tier filter by insurer
+  const [tierInsurerFilter, setTierInsurerFilter] = useState<string>("all");
 
   // Expanded states
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
@@ -180,13 +183,25 @@ export default function MasterDataManagement() {
   };
 
   // Tier handlers
-  const openTierDialog = (tier?: MasterTier, sectionCode?: string) => {
+  const openTierDialog = (tier?: MasterTier, sectionCode?: string, insurerCode?: string) => {
     if (tier) {
       setSelectedTier(tier);
-      setTierForm({ tier_code: tier.tier_code, section_code: tier.section_code, tier_label: tier.tier_label, is_active: tier.is_active });
+      setTierForm({ 
+        tier_code: tier.tier_code, 
+        section_code: tier.section_code, 
+        tier_label: tier.tier_label, 
+        insurer_code: tier.insurer_code || "",
+        is_active: tier.is_active 
+      });
     } else {
       setSelectedTier(null);
-      setTierForm({ tier_code: "", section_code: sectionCode || "", tier_label: "", is_active: true });
+      setTierForm({ 
+        tier_code: "", 
+        section_code: sectionCode || "", 
+        tier_label: "", 
+        insurer_code: insurerCode || tierInsurerFilter !== "all" ? tierInsurerFilter : "",
+        is_active: true 
+      });
     }
     setTierDialog(true);
   };
@@ -194,10 +209,18 @@ export default function MasterDataManagement() {
   const saveTier = async () => {
     try {
       if (selectedTier) {
-        await updateTier.mutateAsync({ tier_code: selectedTier.tier_code, tier_label: tierForm.tier_label, is_active: tierForm.is_active });
+        await updateTier.mutateAsync({ 
+          tier_code: selectedTier.tier_code, 
+          tier_label: tierForm.tier_label, 
+          insurer_code: tierForm.insurer_code || null,
+          is_active: tierForm.is_active 
+        });
         toast.success("Tier updated");
       } else {
-        await createTier.mutateAsync(tierForm);
+        await createTier.mutateAsync({
+          ...tierForm,
+          insurer_code: tierForm.insurer_code || null
+        });
         toast.success("Tier created");
       }
       setTierDialog(false);
@@ -364,7 +387,23 @@ export default function MasterDataManagement() {
 
         {/* Sections & Tiers Tab */}
         <TabsContent value="sections" className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <Label className="text-sm text-muted-foreground whitespace-nowrap">Filter by Insurer:</Label>
+              <Select value={tierInsurerFilter} onValueChange={setTierInsurerFilter}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="All Insurers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Insurers</SelectItem>
+                  {insurers?.map((ins) => (
+                    <SelectItem key={ins.insurer_code} value={ins.insurer_code}>
+                      {ins.insurer_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Button onClick={() => openSectionDialog()}>
               <Plus className="w-4 h-4 mr-2" />
               Add Section
@@ -372,7 +411,10 @@ export default function MasterDataManagement() {
           </div>
           <div className="space-y-3">
             {sections?.map((section) => {
-              const sectionTiers = tiers?.filter(t => t.section_code === section.section_code) || [];
+              const sectionTiers = tiers?.filter(t => 
+                t.section_code === section.section_code && 
+                (tierInsurerFilter === "all" || t.insurer_code === tierInsurerFilter)
+              ) || [];
               const isExpanded = expandedSections.includes(section.section_code);
 
               return (
@@ -407,23 +449,36 @@ export default function MasterDataManagement() {
                       <CardContent className="pt-0">
                         <div className="border-t pt-4">
                           <div className="flex items-center justify-between mb-3">
-                            <h4 className="font-medium text-sm text-muted-foreground">Plan Tiers</h4>
-                            <Button variant="outline" size="sm" onClick={() => openTierDialog(undefined, section.section_code)}>
+                            <h4 className="font-medium text-sm text-muted-foreground">
+                              Plan Tiers {tierInsurerFilter !== "all" && `(${insurers?.find(i => i.insurer_code === tierInsurerFilter)?.insurer_name})`}
+                            </h4>
+                            <Button variant="outline" size="sm" onClick={() => openTierDialog(undefined, section.section_code, tierInsurerFilter !== "all" ? tierInsurerFilter : undefined)}>
                               <Plus className="w-3 h-3 mr-1" />
                               Add Tier
                             </Button>
                           </div>
                           {sectionTiers.length === 0 ? (
-                            <p className="text-sm text-muted-foreground text-center py-4">No tiers configured</p>
+                            <p className="text-sm text-muted-foreground text-center py-4">
+                              {tierInsurerFilter !== "all" 
+                                ? `No tiers configured for ${insurers?.find(i => i.insurer_code === tierInsurerFilter)?.insurer_name}`
+                                : "No tiers configured"}
+                            </p>
                           ) : (
-                            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                               {sectionTiers.map((tier) => (
                                 <div
                                   key={tier.tier_code}
                                   className={`flex items-center justify-between p-3 rounded-lg border ${!tier.is_active ? "opacity-50 bg-muted/30" : "bg-card"}`}
                                 >
-                                  <div className="min-w-0">
-                                    <p className="font-mono text-xs text-primary">{tier.tier_code}</p>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <p className="font-mono text-xs text-primary">{tier.tier_code}</p>
+                                      {tier.insurer_code && (
+                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                          {tier.insurer?.insurer_name || tier.insurer_code}
+                                        </Badge>
+                                      )}
+                                    </div>
                                     <p className="font-medium text-sm">{tier.tier_label}</p>
                                   </div>
                                   <div className="flex items-center gap-1">
@@ -593,20 +648,31 @@ export default function MasterDataManagement() {
         <DialogContent className="bg-background">
           <DialogHeader>
             <DialogTitle>{selectedTier ? "Edit" : "Add"} Plan Tier</DialogTitle>
-            <DialogDescription>Configure plan tier settings</DialogDescription>
+            <DialogDescription>Configure plan tier for a specific insurer and benefit section</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Tier Code</Label>
-              <Input
-                value={tierForm.tier_code}
-                onChange={(e) => setTierForm({ ...tierForm, tier_code: e.target.value.toUpperCase().replace(/\s+/g, '') })}
-                placeholder="e.g., IP300"
+              <Label>Insurer <span className="text-destructive">*</span></Label>
+              <Select
+                value={tierForm.insurer_code}
+                onValueChange={(v) => setTierForm({ ...tierForm, insurer_code: v })}
                 disabled={!!selectedTier}
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select insurer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {insurers?.map((ins) => (
+                    <SelectItem key={ins.insurer_code} value={ins.insurer_code}>
+                      {ins.insurer_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Each insurer defines their own set of tiers</p>
             </div>
             <div className="space-y-2">
-              <Label>Section</Label>
+              <Label>Section <span className="text-destructive">*</span></Label>
               <Select
                 value={tierForm.section_code}
                 onValueChange={(v) => setTierForm({ ...tierForm, section_code: v })}
@@ -625,11 +691,21 @@ export default function MasterDataManagement() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Label</Label>
+              <Label>Tier Code <span className="text-destructive">*</span></Label>
+              <Input
+                value={tierForm.tier_code}
+                onChange={(e) => setTierForm({ ...tierForm, tier_code: e.target.value.toUpperCase().replace(/\s+/g, '') })}
+                placeholder="e.g., IP300"
+                disabled={!!selectedTier}
+              />
+              <p className="text-xs text-muted-foreground">Unique identifier for this tier (e.g., ACA_IP300)</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Display Label <span className="text-destructive">*</span></Label>
               <Input
                 value={tierForm.tier_label}
                 onChange={(e) => setTierForm({ ...tierForm, tier_label: e.target.value })}
-                placeholder="e.g., IP 300"
+                placeholder="e.g., In-Patient 300M"
               />
             </div>
             <div className="flex items-center justify-between">
@@ -639,7 +715,7 @@ export default function MasterDataManagement() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setTierDialog(false)}>Cancel</Button>
-            <Button onClick={saveTier} disabled={!tierForm.tier_code || !tierForm.section_code || !tierForm.tier_label}>Save</Button>
+            <Button onClick={saveTier} disabled={!tierForm.tier_code || !tierForm.section_code || !tierForm.tier_label || !tierForm.insurer_code}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
