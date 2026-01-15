@@ -8,7 +8,10 @@ import {
   CheckSquare,
   Users,
   Building2,
-  Shield
+  Shield,
+  Tag,
+  FileText,
+  DollarSign
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,7 +27,10 @@ const navItems = [
 const adminItems = [
   { href: "/admin/users", label: "User Management", icon: Users },
   { href: "/admin/insurance", label: "Insurance Companies", icon: Building2 },
-  { href: "/admin/benefits", label: "Benefits Management", icon: Shield },
+  { href: "/admin/benefits", label: "Master Data", icon: Shield },
+  { href: "/admin/benefit-items", label: "Benefit Items", icon: Tag },
+  { href: "/admin/schedule-templates", label: "Schedule Templates", icon: FileText },
+  { href: "/admin/pricing", label: "Pricing", icon: DollarSign },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -83,10 +89,10 @@ export function AppSidebar() {
         <nav className="space-y-1">
           {adminItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location.pathname === item.href || location.pathname.startsWith(item.href);
+            const isActive = location.pathname === item.href || (item.href !== "/" && location.pathname.startsWith(item.href));
             
             // Only show admin-specific items to admins
-            if ((item.href === "/admin/users" || item.href === "/admin/insurance" || item.href === "/admin/benefits") && !isAdmin) {
+            if (item.href.startsWith("/admin/") && !isAdmin) {
               return null;
             }
             
