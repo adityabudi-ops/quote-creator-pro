@@ -112,14 +112,14 @@ export function RequestedTiersEditor({
                 )}
               </Label>
               <Select
-                value={selectedTier}
-                onValueChange={(value) => updateTier(sectionCode, value || null)}
+                value={selectedTier || "__no_preference__"}
+                onValueChange={(value) => updateTier(sectionCode, value === "__no_preference__" ? null : value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={`Select ${SECTION_LABELS[sectionCode]} tier`} />
                 </SelectTrigger>
                 <SelectContent className="bg-popover">
-                  <SelectItem value="">No preference</SelectItem>
+                  <SelectItem value="__no_preference__">No preference</SelectItem>
                   {uniqueTiers.map((tier) => (
                     <SelectItem key={tier.tierCode} value={tier.tierCode}>
                       <div className="flex items-center gap-2">
