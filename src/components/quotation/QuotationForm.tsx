@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format, addMonths, subDays } from "date-fns";
-import { CalendarIcon, Plus, Trash2, Save, Eye } from "lucide-react";
+import { CalendarIcon, Save, Eye, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,53 +19,14 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { createNotification } from "@/hooks/useNotifications";
-import { useInsurers, type MasterInsurer } from "@/hooks/useMasterData";
-import type { QuotationData, BenefitsOption } from "@/types/quotation";
-import { BENEFITS_OPTIONS_LABELS } from "@/types/quotation";
+import { useInsurers, useCoverageRules, useBenefitSections } from "@/hooks/useMasterData";
+import { useGenerateQuotation, type Package as WorkflowPackage, type RequestedTier as WorkflowRequestedTier } from "@/hooks/useQuotationWorkflow";
+import { PackageEditor, type Package } from "./PackageEditor";
+import { RequestedTiersEditor, type RequestedTier } from "./RequestedTiersEditor";
+import type { QuotationData } from "@/types/quotation";
+import { BENEFITS_OPTIONS_LABELS, type BenefitsOption } from "@/types/quotation";
 import type { Json } from "@/integrations/supabase/types";
-
-// Plan options per benefit type (sorted ascending)
-const PLAN_OPTIONS = {
-  inPatient: [
-    "IP 300", "IP 400", "IP 500", "IP 600", "IP 700", "IP 800",
-    "IP 1000", "IP 1250", "IP 1500", "IP 2000", "IP 2500", "IP 3000"
-  ],
-  dental: [
-    "DE 1500", "DE 2000", "DE 2500", "DE 3000", "DE 3500", "DE 4000",
-    "DE 4500", "DE 5000", "DE 5500", "DE 6000", "DE 6500", "DE 7000"
-  ],
-  maternity: [
-    "MA 4000", "MA 4500", "MA 5000", "MA 6000", "MA 6500", "MA 7000",
-    "MA 7500", "MA 8000", "MA 9000", "MA 10000"
-  ],
-  outPatient: [
-    "OP 150", "OP 175", "OP 200", "OP 225", "OP 250", "OP 300",
-    "OP 350", "OP 425", "OP 450", "OP 475", "OP 500", "OP 550"
-  ],
-};
-
-interface MemberBreakdown {
-  male0to59: number;
-  female0to59: number;
-  child0to59: number;
-  male60to64: number;
-  female60to64: number;
-}
-
-interface BenefitGroup {
-  id: string;
-  benefitType: 'inPatient' | 'outPatient' | 'dental' | 'maternity';
-  planName: string;
-  members: MemberBreakdown;
-}
-
-const DEFAULT_MEMBERS: MemberBreakdown = {
-  male0to59: 0,
-  female0to59: 0,
-  child0to59: 0,
-  male60to64: 0,
-  female60to64: 0,
-};
+import type { DemographicType } from "@/hooks/useMasterData";
 
 const BENEFITS_OPTIONS: BenefitsOption[] = [
   'inner_limit_all',
@@ -74,14 +35,20 @@ const BENEFITS_OPTIONS: BenefitsOption[] = [
   'as_charge_ip_op_de_inner_limit_ma',
 ];
 
+// Map benefits option to coverage rule code
+const BENEFITS_TO_COVERAGE_RULE: Record<BenefitsOption, string> = {
+  'inner_limit_all': 'inner_limit_all',
+  'inner_limit_ip_ma_as_charge_op_de': 'inner_limit_ip_ma',
+  'semi_as_charge_ip_inner_limit_ma_as_charge_op_de': 'semi_as_charge_ip',
+  'as_charge_ip_op_de_inner_limit_ma': 'as_charge_all',
+};
+
 const quotationSchema = z.object({
   insuredName: z.string().min(1, "Insured name is required").max(200, "Name too long"),
   insuredAddress: z.string().min(1, "Address is required").max(500, "Address too long"),
   startDate: z.date({ required_error: "Start date is required" }),
   endDate: z.date({ required_error: "End date is required" }),
-  benefitsOption: z.enum(['inner_limit_all', 'inner_limit_ip_ma_as_charge_op_de', 'semi_as_charge_ip_inner_limit_ma_as_charge_op_de', 'as_charge_ip_op_de_inner_limit_ma'] as const, {
-    required_error: "Benefits option is required",
-  }),
+  coverageRuleCode: z.string().min(1, "Coverage rule is required"),
   inPatient: z.boolean(),
   outPatient: z.boolean(),
   dental: z.boolean(),
@@ -89,10 +56,7 @@ const quotationSchema = z.object({
 }).refine((data) => data.endDate > data.startDate, {
   message: "End date must be after start date",
   path: ["endDate"],
-}).refine((data) => {
-  // In-Patient is always required (mandatory)
-  return data.inPatient;
-}, {
+}).refine((data) => data.inPatient, {
   message: "In-Patient coverage is mandatory",
   path: ["inPatient"],
 });
@@ -100,20 +64,14 @@ const quotationSchema = z.object({
 type QuotationFormData = z.infer<typeof quotationSchema>;
 
 const steps = [
-  { id: 1, title: "Insured Information" },
+  { id: 1, title: "Insured Info" },
   { id: 2, title: "Policy Period" },
   { id: 3, title: "Benefits" },
-  { id: 4, title: "Insurance Companies" },
-  { id: 5, title: "Group Structure" },
-  { id: 6, title: "Review" },
+  { id: 4, title: "Insurers" },
+  { id: 5, title: "Packages" },
+  { id: 6, title: "Tiers" },
+  { id: 7, title: "Review" },
 ];
-
-const BENEFIT_LABELS: Record<string, string> = {
-  inPatient: "In-Patient",
-  outPatient: "Out-Patient",
-  dental: "Dental",
-  maternity: "Maternity",
-};
 
 interface QuotationFormProps {
   mode?: "create" | "edit";
@@ -121,81 +79,33 @@ interface QuotationFormProps {
   onCancel?: () => void;
 }
 
+const DEFAULT_CENSUS: Record<DemographicType, number> = {
+  M_0_59: 0,
+  F_0_59: 0,
+  C_0_59: 0,
+  M_60_64: 0,
+  F_60_64: 0,
+};
+
 export function QuotationForm({ mode = "create", initialData, onCancel }: QuotationFormProps) {
   const navigate = useNavigate();
   const { profile, loading: authLoading } = useAuth();
   const { data: insurersList, isLoading: loadingInsurers } = useInsurers(true);
+  const { data: coverageRulesList, isLoading: loadingRules } = useCoverageRules(true);
+  const { data: sectionsList } = useBenefitSections(true);
+  const generateQuotation = useGenerateQuotation();
+
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedInsurers, setSelectedInsurers] = useState<string[]>(
     initialData?.insuranceCompanies || []
   );
   const [insurerError, setInsurerError] = useState<string>("");
-
-  // Show loading while auth or insurers are loading
-  if (authLoading || loadingInsurers) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
-
-  // Helper to get insurer name from code
-  const getInsurerName = (code: string): string => {
-    const insurer = insurersList?.find(i => i.insurer_code === code);
-    return insurer?.insurer_name || code;
-  };
-  
-  // Initialize benefit groups from initial data if in edit mode
-  const getInitialBenefitGroups = (): Record<string, BenefitGroup[]> => {
-    if (initialData) {
-      const groups: Record<string, BenefitGroup[]> = {};
-      if (initialData.benefits.inPatient) {
-        groups.inPatient = initialData.insuredGroups
-          .filter(g => g.planName.startsWith("IP"))
-          .map(g => ({ ...g, benefitType: "inPatient" as const }));
-        if (groups.inPatient.length === 0) {
-          groups.inPatient = [{ id: "ip-1", benefitType: "inPatient", planName: "", members: { ...DEFAULT_MEMBERS } }];
-        }
-      }
-      if (initialData.benefits.outPatient) {
-        groups.outPatient = initialData.insuredGroups
-          .filter(g => g.planName.startsWith("OP"))
-          .map(g => ({ ...g, benefitType: "outPatient" as const }));
-        if (groups.outPatient.length === 0) {
-          groups.outPatient = [{ id: "op-1", benefitType: "outPatient", planName: "", members: { ...DEFAULT_MEMBERS } }];
-        }
-      }
-      if (initialData.benefits.dental) {
-        groups.dental = initialData.insuredGroups
-          .filter(g => g.planName.startsWith("DE"))
-          .map(g => ({ ...g, benefitType: "dental" as const }));
-        if (groups.dental.length === 0) {
-          groups.dental = [{ id: "de-1", benefitType: "dental", planName: "", members: { ...DEFAULT_MEMBERS } }];
-        }
-      }
-      if (initialData.benefits.maternity) {
-        groups.maternity = initialData.insuredGroups
-          .filter(g => g.planName.startsWith("MA"))
-          .map(g => ({ ...g, benefitType: "maternity" as const }));
-        if (groups.maternity.length === 0) {
-          groups.maternity = [{ id: "ma-1", benefitType: "maternity", planName: "", members: { ...DEFAULT_MEMBERS } }];
-        }
-      }
-      // If no groups found, default to inPatient
-      if (Object.keys(groups).length === 0) {
-        groups.inPatient = [{ id: "ip-1", benefitType: "inPatient", planName: "", members: { ...DEFAULT_MEMBERS } }];
-      }
-      return groups;
-    }
-    return {
-      inPatient: [{ id: "ip-1", benefitType: "inPatient", planName: "", members: { ...DEFAULT_MEMBERS } }],
-    };
-  };
-
-  const [benefitGroups, setBenefitGroups] = useState<Record<string, BenefitGroup[]>>(getInitialBenefitGroups);
-  const [groupErrors, setGroupErrors] = useState<string[]>([]);
+  const [packages, setPackages] = useState<Package[]>([
+    { id: `pkg-${Date.now()}`, name: "Package A", census: { ...DEFAULT_CENSUS } },
+  ]);
+  const [packageErrors, setPackageErrors] = useState<string[]>([]);
+  const [requestedTiers, setRequestedTiers] = useState<RequestedTier[]>([]);
 
   const form = useForm<QuotationFormData>({
     resolver: zodResolver(quotationSchema),
@@ -204,11 +114,11 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
       insuredAddress: initialData?.insuredAddress || "",
       startDate: initialData?.startDate || new Date(),
       endDate: initialData?.endDate || subDays(addMonths(new Date(), 12), 1),
-      benefitsOption: initialData?.benefitsOption || "inner_limit_all",
-      inPatient: initialData?.benefits.inPatient ?? true,
-      outPatient: initialData?.benefits.outPatient ?? false,
-      dental: initialData?.benefits.dental ?? false,
-      maternity: initialData?.benefits.maternity ?? false,
+      coverageRuleCode: initialData?.benefitsOption || "",
+      inPatient: initialData?.benefits?.inPatient ?? true,
+      outPatient: initialData?.benefits?.outPatient ?? false,
+      dental: initialData?.benefits?.dental ?? false,
+      maternity: initialData?.benefits?.maternity ?? false,
     },
   });
 
@@ -217,8 +127,9 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
   const watchOutPatient = form.watch("outPatient");
   const watchDental = form.watch("dental");
   const watchMaternity = form.watch("maternity");
+  const watchCoverageRule = form.watch("coverageRuleCode");
 
-  // Auto-calculate end date when start date changes (12 months - 1 day)
+  // Auto-calculate end date when start date changes
   useEffect(() => {
     if (watchStartDate) {
       const newEndDate = subDays(addMonths(watchStartDate, 12), 1);
@@ -226,195 +137,49 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
     }
   }, [watchStartDate, form]);
 
-  // Sync benefit groups: when benefits selection changes, sync row count (not member counts)
-  useEffect(() => {
-    const selectedBenefits = {
-      inPatient: watchInPatient,
-      outPatient: watchOutPatient,
-      dental: watchDental,
-      maternity: watchMaternity,
-    };
-
-    setBenefitGroups((prev) => {
-      const inPatientGroups = prev.inPatient || [
-        { id: "ip-1", benefitType: "inPatient" as const, planName: "", members: { ...DEFAULT_MEMBERS } }
-      ];
-      
-      const newGroups: Record<string, BenefitGroup[]> = {};
-
-      Object.entries(selectedBenefits).forEach(([benefit, isSelected]) => {
-        if (isSelected) {
-          if (benefit === 'inPatient') {
-            newGroups.inPatient = inPatientGroups;
-          } else {
-            // Sync row count from In-Patient, but keep existing member counts if available
-            newGroups[benefit] = inPatientGroups.map((ipGroup, index) => {
-              const existingGroup = prev[benefit]?.[index];
-              return {
-                id: existingGroup?.id || `${benefit}-${index + 1}`,
-                benefitType: benefit as BenefitGroup['benefitType'],
-                planName: existingGroup?.planName || "",
-                // Keep existing member counts if editing, otherwise copy from In-Patient as default
-                members: existingGroup?.members || { ...ipGroup.members },
-              };
-            });
-          }
-        }
-      });
-
-      return newGroups;
-    });
-  }, [watchInPatient, watchOutPatient, watchDental, watchMaternity]);
-
-  // When In-Patient group structure changes, sync row count to other benefits (not member counts)
-  const addGroup = () => {
-    setBenefitGroups((prev) => {
-      const newInPatientGroups = [
-        ...(prev.inPatient || []),
-        { id: `inPatient-${Date.now()}`, benefitType: "inPatient" as const, planName: "", members: { ...DEFAULT_MEMBERS } },
-      ];
-      
-      const newGroups: Record<string, BenefitGroup[]> = { inPatient: newInPatientGroups };
-      
-      // Sync new row to other selected benefits (add empty row, don't copy members)
-      Object.keys(prev).forEach((benefit) => {
-        if (benefit !== 'inPatient') {
-          newGroups[benefit] = newInPatientGroups.map((ipGroup, index) => ({
-            id: prev[benefit]?.[index]?.id || `${benefit}-${Date.now()}-${index}`,
-            benefitType: benefit as BenefitGroup['benefitType'],
-            planName: prev[benefit]?.[index]?.planName || "",
-            // Keep existing members if row exists, otherwise use default
-            members: prev[benefit]?.[index]?.members || { ...DEFAULT_MEMBERS },
-          }));
-        }
-      });
-      
-      return newGroups;
-    });
+  // Get selected benefit section codes
+  const getSelectedBenefitSections = (): string[] => {
+    const sections: string[] = [];
+    if (watchInPatient) sections.push("IP");
+    if (watchOutPatient) sections.push("OP");
+    if (watchDental) sections.push("DE");
+    if (watchMaternity) sections.push("MA");
+    return sections;
   };
 
-  const removeGroup = (index: number) => {
-    setBenefitGroups((prev) => {
-      const inPatientGroups = prev.inPatient || [];
-      if (inPatientGroups.length <= 1) return prev;
-      
-      const newGroups: Record<string, BenefitGroup[]> = {};
-      
-      Object.entries(prev).forEach(([benefit, groups]) => {
-        newGroups[benefit] = groups.filter((_, i) => i !== index);
-      });
-      
-      return newGroups;
-    });
-  };
-
-  const updateGroup = (benefitType: string, id: string, field: keyof BenefitGroup | keyof MemberBreakdown, value: string | number) => {
-    setBenefitGroups((prev) => ({
-      ...prev,
-      [benefitType]: (prev[benefitType] || []).map((g) => {
-        if (g.id !== id) return g;
-        if (field === 'planName' || field === 'benefitType' || field === 'id') {
-          return { ...g, [field]: value };
-        }
-        // It's a member field
-        return { ...g, members: { ...g.members, [field]: value } };
-      }),
-    }));
-  };
-
-  // Helper to get plan number for sorting
-  const getPlanNumber = (planName: string): number => {
-    const match = planName.match(/\d+/);
-    return match ? parseInt(match[0], 10) : 0;
-  };
-
-  // Helper to check if plans are in ascending order
-  const arePlansAscending = (groups: BenefitGroup[]): boolean => {
-    const planNumbers = groups.map(g => getPlanNumber(g.planName));
-    for (let i = 1; i < planNumbers.length; i++) {
-      if (planNumbers[i] <= planNumbers[i - 1]) return false;
-    }
-    return true;
-  };
-
-  // Get total female members for maternity (age 0-59 only)
-  const getMaternityEligibleFemales = (): number => {
-    return (benefitGroups.maternity || []).reduce((sum, g) => sum + g.members.female0to59, 0);
-  };
-
-  const AGE_GROUP_LABELS: Record<keyof MemberBreakdown, string> = {
-    male0to59: "Male (0-59)",
-    female0to59: "Female (0-59)",
-    child0to59: "Child (0-59)",
-    male60to64: "Male (60-64)",
-    female60to64: "Female (60-64)",
-  };
-
-  const validateGroups = (): boolean => {
+  const validatePackages = (): boolean => {
     const errors: string[] = [];
-    const inPatientTotals = {
-      male0to59: (benefitGroups.inPatient || []).reduce((sum, g) => sum + g.members.male0to59, 0),
-      female0to59: (benefitGroups.inPatient || []).reduce((sum, g) => sum + g.members.female0to59, 0),
-      child0to59: (benefitGroups.inPatient || []).reduce((sum, g) => sum + g.members.child0to59, 0),
-      male60to64: (benefitGroups.inPatient || []).reduce((sum, g) => sum + g.members.male60to64, 0),
-      female60to64: (benefitGroups.inPatient || []).reduce((sum, g) => sum + g.members.female60to64, 0),
-    };
+    
+    if (packages.length === 0) {
+      errors.push("At least one package is required");
+    }
 
-    Object.entries(benefitGroups).forEach(([benefitType, groups]) => {
-      const planNames = new Set<string>();
-
-      groups.forEach((group, index) => {
-        // Check plan name is selected
-        if (!group.planName) {
-          errors.push(`Plan is required for ${BENEFIT_LABELS[benefitType]} row ${index + 1}`);
-        } else {
-          // Check for duplicate plan names within the same benefit type
-          if (planNames.has(group.planName)) {
-            errors.push(`Duplicate plan in ${BENEFIT_LABELS[benefitType]}: ${group.planName}`);
-          } else {
-            planNames.add(group.planName);
-          }
-        }
-
-        // Check every row has at least 1 member (no zeros)
-        const totalMembers = getGroupTotal(group);
-        if (totalMembers === 0) {
-          errors.push(`Every row must have at least 1 member - ${BENEFIT_LABELS[benefitType]} ${group.planName || `row ${index + 1}`}`);
-        }
-      });
-
-      // Check ascending order
-      if (groups.length > 1 && groups.every(g => g.planName) && !arePlansAscending(groups)) {
-        errors.push(`${BENEFIT_LABELS[benefitType]} plans must be in ascending order`);
+    packages.forEach((pkg, index) => {
+      const totalLives = Object.values(pkg.census).reduce((sum, v) => sum + v, 0);
+      if (totalLives === 0) {
+        errors.push(`${pkg.name} must have at least one member`);
       }
-
-      // Validate each age group total matches In-Patient for other benefits
-      if (benefitType !== 'inPatient') {
-        const benefitTotals = {
-          male0to59: groups.reduce((sum, g) => sum + g.members.male0to59, 0),
-          female0to59: groups.reduce((sum, g) => sum + g.members.female0to59, 0),
-          child0to59: groups.reduce((sum, g) => sum + g.members.child0to59, 0),
-          male60to64: groups.reduce((sum, g) => sum + g.members.male60to64, 0),
-          female60to64: groups.reduce((sum, g) => sum + g.members.female60to64, 0),
-        };
-
-        (Object.keys(inPatientTotals) as (keyof typeof inPatientTotals)[]).forEach((ageGroup) => {
-          if (benefitTotals[ageGroup] !== inPatientTotals[ageGroup]) {
-            errors.push(`${BENEFIT_LABELS[benefitType]} ${AGE_GROUP_LABELS[ageGroup]} (${benefitTotals[ageGroup]}) must match In-Patient (${inPatientTotals[ageGroup]})`);
-          }
-        });
+      if (!pkg.name.trim()) {
+        errors.push(`Package ${index + 1} requires a name`);
       }
     });
 
-    // Maternity validation: minimum 5 females (age 0-59 only)
-    if (benefitGroups.maternity && benefitGroups.maternity.length > 0) {
-      const maternityFemales = getMaternityEligibleFemales();
-      if (maternityFemales < 5) {
-        errors.push(`Maternity requires minimum 5 female members (age 0-59). Current: ${maternityFemales}`);
+    // Check duplicate names
+    const names = packages.map(p => p.name.toLowerCase());
+    const duplicates = names.filter((n, i) => names.indexOf(n) !== i);
+    if (duplicates.length > 0) {
+      errors.push("Package names must be unique");
+    }
+
+    // Maternity validation: minimum 5 females
+    if (watchMaternity) {
+      const totalFemales = packages.reduce((sum, pkg) => sum + pkg.census.F_0_59, 0);
+      if (totalFemales < 5) {
+        errors.push(`Maternity requires minimum 5 female members (age 0-59). Current: ${totalFemales}`);
       }
     }
 
-    setGroupErrors(errors);
+    setPackageErrors(errors);
     return errors.length === 0;
   };
 
@@ -442,16 +207,16 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
     if (currentStep === 1) {
       isValid = await form.trigger(["insuredName", "insuredAddress"]);
     } else if (currentStep === 2) {
-      isValid = await form.trigger(["startDate", "endDate", "benefitsOption"]);
+      isValid = await form.trigger(["startDate", "endDate", "coverageRuleCode"]);
     } else if (currentStep === 3) {
       isValid = await form.trigger(["inPatient", "outPatient", "dental", "maternity"]);
     } else if (currentStep === 4) {
       isValid = validateInsurers();
     } else if (currentStep === 5) {
-      isValid = validateGroups();
+      isValid = validatePackages();
     }
 
-    if (isValid && currentStep < 6) {
+    if (isValid && currentStep < steps.length) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -463,15 +228,14 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
   };
 
   const onSubmit = async (data: QuotationFormData) => {
-    if (!validateGroups()) {
-      toast.error("Please fix group structure errors");
+    if (!validatePackages()) {
+      toast.error("Please fix package errors");
       return;
     }
     if (!validateInsurers()) {
       toast.error("Please select at least one insurance company");
       return;
     }
-
     if (!profile?.id) {
       toast.error("You must be logged in to create a quotation");
       return;
@@ -485,20 +249,9 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
       const randomNum = String(Date.now()).slice(-4);
       const quotationNumber = `Q-${year}-${randomNum}`;
 
-      // Prepare insured groups data as JSON-compatible format
-      const allInsuredGroups: Json = Object.values(benefitGroups).flat().map(g => ({
-        id: g.id,
-        planName: g.planName,
-        members: {
-          male0to59: g.members.male0to59,
-          female0to59: g.members.female0to59,
-          child0to59: g.members.child0to59,
-          male60to64: g.members.male60to64,
-          female60to64: g.members.female60to64,
-        },
-      }));
+      const selectedBenefits = getSelectedBenefitSections();
 
-      // Prepare benefits as JSON-compatible format
+      // Prepare benefits JSON
       const benefitsJson: Json = {
         inPatient: data.inPatient,
         outPatient: data.outPatient,
@@ -506,29 +259,57 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
         maternity: data.maternity,
       };
 
+      // Legacy insured_groups format for backward compatibility
+      const insuredGroupsJson: Json = packages.map(pkg => ({
+        id: pkg.id,
+        planName: pkg.name,
+        members: {
+          male0to59: pkg.census.M_0_59,
+          female0to59: pkg.census.F_0_59,
+          child0to59: pkg.census.C_0_59,
+          male60to64: pkg.census.M_60_64,
+          female60to64: pkg.census.F_60_64,
+        },
+      }));
+
       if (mode === "edit" && initialData) {
-        // Update existing quotation - reset approval workflow
-        const { data: updatedQuotation, error } = await supabase
+        // Update existing quotation
+        const { error } = await supabase
           .from("quotations")
           .update({
             insured_name: data.insuredName,
             insured_address: data.insuredAddress,
             start_date: format(data.startDate, "yyyy-MM-dd"),
             end_date: format(data.endDate, "yyyy-MM-dd"),
-            benefits_option: data.benefitsOption,
-            insurance_companies: selectedInsurers as string[],
+            coverage_rule_code: data.coverageRuleCode,
+            benefits_option: data.coverageRuleCode,
+            insurance_companies: selectedInsurers,
             benefits: benefitsJson,
-            insured_groups: allInsuredGroups,
+            insured_groups: insuredGroupsJson,
             version: (initialData.version || 1) + 1,
-            status: "pending_pialang", // Reset to start of approval workflow
+            status: "pending_pialang",
           })
-          .eq("id", initialData.id)
-          .select()
-          .single();
+          .eq("id", initialData.id);
 
         if (error) throw error;
 
-        // Create notification for Tenaga Pialang about amended quotation
+        // Generate quotation data (tier resolution, pricing, schedule capture)
+        await generateQuotation.mutateAsync({
+          quotationId: initialData.id,
+          coverageRuleCode: data.coverageRuleCode,
+          insurerCodes: selectedInsurers,
+          packages: packages.map(p => ({
+            ...p,
+            census: p.census,
+          })) as WorkflowPackage[],
+          requestedTiers: requestedTiers.map(rt => ({
+            sectionCode: rt.sectionCode,
+            tierCode: rt.tierCode,
+          })) as WorkflowRequestedTier[],
+          benefitSections: selectedBenefits,
+          policyStartDate: data.startDate,
+        });
+
         await createNotification({
           targetRole: "tenaga_pialang",
           type: "pending_approval",
@@ -537,7 +318,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
           quotationId: initialData.id,
         });
 
-        toast.success("Quotation updated and resubmitted for approval!");
+        toast.success("Quotation updated successfully!");
         navigate(`/quotation/${initialData.id}`);
       } else {
         // Create new quotation
@@ -549,10 +330,11 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
             insured_address: data.insuredAddress,
             start_date: format(data.startDate, "yyyy-MM-dd"),
             end_date: format(data.endDate, "yyyy-MM-dd"),
-            benefits_option: data.benefitsOption,
-            insurance_companies: selectedInsurers as string[],
+            coverage_rule_code: data.coverageRuleCode,
+            benefits_option: data.coverageRuleCode,
+            insurance_companies: selectedInsurers,
             benefits: benefitsJson,
-            insured_groups: allInsuredGroups,
+            insured_groups: insuredGroupsJson,
             status: "pending_pialang",
             created_by: profile.id,
           })
@@ -561,7 +343,23 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
 
         if (error) throw error;
 
-        // Create notification for Tenaga Pialang
+        // Generate quotation data (tier resolution, pricing, schedule capture)
+        await generateQuotation.mutateAsync({
+          quotationId: newQuotation.id,
+          coverageRuleCode: data.coverageRuleCode,
+          insurerCodes: selectedInsurers,
+          packages: packages.map(p => ({
+            ...p,
+            census: p.census,
+          })) as WorkflowPackage[],
+          requestedTiers: requestedTiers.map(rt => ({
+            sectionCode: rt.sectionCode,
+            tierCode: rt.tierCode,
+          })) as WorkflowRequestedTier[],
+          benefitSections: selectedBenefits,
+          policyStartDate: data.startDate,
+        });
+
         await createNotification({
           targetRole: "tenaga_pialang",
           type: "pending_approval",
@@ -570,7 +368,6 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
           quotationId: newQuotation.id,
         });
 
-        // Create notification for the creator (recent quotation)
         await createNotification({
           userId: profile.user_id,
           type: "quotation_created",
@@ -579,7 +376,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
           quotationId: newQuotation.id,
         });
 
-        toast.success("Quotation created and submitted for approval!");
+        toast.success("Quotation created successfully!");
         navigate("/");
       }
     } catch (error: any) {
@@ -590,34 +387,32 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
     }
   };
 
-  const getGroupTotal = (group: BenefitGroup) => {
-    const m = group.members;
-    return m.male0to59 + m.female0to59 + m.child0to59 + m.male60to64 + m.female60to64;
+  const getInsurerName = (code: string): string => {
+    return insurersList?.find(i => i.insurer_code === code)?.insurer_name || code;
   };
 
-  const getTotalMembers = (benefitType: string) => {
-    return (benefitGroups[benefitType] || []).reduce((sum, g) => sum + getGroupTotal(g), 0);
+  const getCoverageRuleName = (code: string): string => {
+    return coverageRulesList?.find(r => r.coverage_rule_code === code)?.coverage_rule_name || code;
   };
 
-  // Get totals per age group for a benefit type
-  const getAgeGroupTotals = (benefitType: string) => {
-    const groups = benefitGroups[benefitType] || [];
-    return {
-      male0to59: groups.reduce((sum, g) => sum + g.members.male0to59, 0),
-      female0to59: groups.reduce((sum, g) => sum + g.members.female0to59, 0),
-      child0to59: groups.reduce((sum, g) => sum + g.members.child0to59, 0),
-      male60to64: groups.reduce((sum, g) => sum + g.members.male60to64, 0),
-      female60to64: groups.reduce((sum, g) => sum + g.members.female60to64, 0),
-    };
+  const getTotalLives = () => {
+    return packages.reduce((sum, pkg) => 
+      sum + Object.values(pkg.census).reduce((s, v) => s + v, 0), 0
+    );
   };
 
-  const selectedBenefits = Object.keys(benefitGroups);
+  if (authLoading || loadingInsurers || loadingRules) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
-      {/* Progress Steps - Redesigned for 6 steps */}
+      {/* Progress Steps */}
       <div className="mb-8">
-        {/* Desktop view */}
         <div className="hidden lg:block">
           <div className="flex items-center justify-between">
             {steps.map((step, index) => (
@@ -625,7 +420,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                 <div className="flex flex-col items-center">
                   <div
                     className={cn(
-                      "w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all shadow-sm",
+                      "w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all shadow-sm",
                       currentStep >= step.id
                         ? "bg-primary text-primary-foreground shadow-primary/30"
                         : "bg-muted text-muted-foreground"
@@ -655,14 +450,13 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
           </div>
         </div>
         
-        {/* Tablet/Mobile view - compact stepper */}
         <div className="lg:hidden">
-          <div className="flex items-center justify-center gap-2 mb-3">
+          <div className="flex items-center justify-center gap-1 mb-3">
             {steps.map((step, index) => (
               <div key={step.id} className="flex items-center">
                 <div
                   className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all",
+                    "w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-all",
                     currentStep === step.id
                       ? "bg-primary text-primary-foreground shadow-md"
                       : currentStep > step.id
@@ -675,7 +469,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                 {index < steps.length - 1 && (
                   <div
                     className={cn(
-                      "w-4 h-0.5 mx-1",
+                      "w-3 h-0.5 mx-0.5",
                       currentStep > step.id ? "bg-primary" : "bg-muted"
                     )}
                   />
@@ -695,7 +489,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
           {currentStep === 1 && (
             <Card className="form-section">
               <CardHeader>
-                <CardTitle className="form-section-title">Insured Information</CardTitle>
+                <CardTitle>Insured Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 <FormField
@@ -719,11 +513,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                     <FormItem>
                       <FormLabel>Insured Address *</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Enter full address"
-                          className="min-h-[100px]"
-                          {...field}
-                        />
+                        <Textarea placeholder="Enter full address" className="min-h-[100px]" {...field} />
                       </FormControl>
                       <FormDescription>Complete registered business address</FormDescription>
                       <FormMessage />
@@ -734,11 +524,11 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
             </Card>
           )}
 
-          {/* Step 2: Policy Period & Benefits Option */}
+          {/* Step 2: Policy Period & Coverage Rule */}
           {currentStep === 2 && (
             <Card className="form-section">
               <CardHeader>
-                <CardTitle className="form-section-title">Policy Period & Benefits Option</CardTitle>
+                <CardTitle>Policy Period & Coverage Rule</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid gap-6 sm:grid-cols-2">
@@ -784,11 +574,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                       <FormItem className="flex flex-col">
                         <FormLabel>End Date (Auto-calculated)</FormLabel>
                         <FormControl>
-                          <Button
-                            variant="outline"
-                            className="w-full pl-3 text-left font-normal"
-                            disabled
-                          >
+                          <Button variant="outline" className="w-full pl-3 text-left font-normal" disabled>
                             {field.value ? format(field.value, "PPP") : "Select start date first"}
                             <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                           </Button>
@@ -802,20 +588,20 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
 
                 <FormField
                   control={form.control}
-                  name="benefitsOption"
+                  name="coverageRuleCode"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Benefits Option *</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormLabel>Coverage Rule *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select a benefits option" />
+                            <SelectValue placeholder="Select a coverage rule" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent className="bg-popover">
-                          {BENEFITS_OPTIONS.map((option) => (
-                            <SelectItem key={option} value={option}>
-                              {BENEFITS_OPTIONS_LABELS[option]}
+                          {coverageRulesList?.map((rule) => (
+                            <SelectItem key={rule.coverage_rule_code} value={rule.coverage_rule_code}>
+                              {rule.coverage_rule_name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -833,11 +619,11 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
           {currentStep === 3 && (
             <Card className="form-section">
               <CardHeader>
-                <CardTitle className="form-section-title">Benefits Selection</CardTitle>
+                <CardTitle>Benefits Selection</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 <p className="text-sm text-muted-foreground">
-                  Select the coverage benefits for this quotation. In-Patient is mandatory.
+                  Select the coverage benefits. In-Patient is mandatory.
                 </p>
                 <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
                   <FormField
@@ -846,20 +632,11 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                     render={({ field }) => (
                       <FormItem className="relative flex flex-row items-center gap-4 rounded-xl border-2 border-primary bg-primary/5 p-5 shadow-sm">
                         <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            disabled={true}
-                            className="h-5 w-5"
-                          />
+                          <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled className="h-5 w-5" />
                         </FormControl>
                         <div className="flex-1 min-w-0">
-                          <FormLabel className="cursor-pointer text-base font-semibold">
-                            In-Patient
-                          </FormLabel>
-                          <FormDescription className="text-xs mt-1">
-                            Hospital admission coverage
-                          </FormDescription>
+                          <FormLabel className="cursor-pointer text-base font-semibold">In-Patient</FormLabel>
+                          <FormDescription className="text-xs mt-1">Hospital admission coverage</FormDescription>
                         </div>
                         <span className="absolute top-2 right-2 text-[10px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                           Mandatory
@@ -876,23 +653,13 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                         field.value ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/50"
                       )}>
                         <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            disabled={!watchInPatient}
-                            className="h-5 w-5"
-                          />
+                          <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={!watchInPatient} className="h-5 w-5" />
                         </FormControl>
                         <div className="flex-1 min-w-0">
-                          <FormLabel className={cn(
-                            "cursor-pointer text-base font-semibold",
-                            !watchInPatient && "text-muted-foreground"
-                          )}>
+                          <FormLabel className={cn("cursor-pointer text-base font-semibold", !watchInPatient && "text-muted-foreground")}>
                             Out-Patient
                           </FormLabel>
-                          <FormDescription className="text-xs mt-1">
-                            Clinic visits coverage
-                          </FormDescription>
+                          <FormDescription className="text-xs mt-1">Clinic and doctor visits</FormDescription>
                         </div>
                       </FormItem>
                     )}
@@ -906,23 +673,13 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                         field.value ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/50"
                       )}>
                         <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            disabled={!watchInPatient}
-                            className="h-5 w-5"
-                          />
+                          <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={!watchInPatient} className="h-5 w-5" />
                         </FormControl>
                         <div className="flex-1 min-w-0">
-                          <FormLabel className={cn(
-                            "cursor-pointer text-base font-semibold",
-                            !watchInPatient && "text-muted-foreground"
-                          )}>
+                          <FormLabel className={cn("cursor-pointer text-base font-semibold", !watchInPatient && "text-muted-foreground")}>
                             Dental
                           </FormLabel>
-                          <FormDescription className="text-xs mt-1">
-                            Dental care coverage
-                          </FormDescription>
+                          <FormDescription className="text-xs mt-1">Dental care coverage</FormDescription>
                         </div>
                       </FormItem>
                     )}
@@ -936,47 +693,34 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                         field.value ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/50"
                       )}>
                         <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            disabled={!watchInPatient}
-                            className="h-5 w-5"
-                          />
+                          <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={!watchInPatient} className="h-5 w-5" />
                         </FormControl>
                         <div className="flex-1 min-w-0">
-                          <FormLabel className={cn(
-                            "cursor-pointer text-base font-semibold",
-                            !watchInPatient && "text-muted-foreground"
-                          )}>
+                          <FormLabel className={cn("cursor-pointer text-base font-semibold", !watchInPatient && "text-muted-foreground")}>
                             Maternity
                           </FormLabel>
                           <FormDescription className="text-xs mt-1">
-                            Pregnancy & childbirth coverage
-                            <span className="block text-[10px] text-muted-foreground/80 mt-0.5">
-                              Min. 5 females (age 0-59) required
-                            </span>
+                            Pregnancy & childbirth
+                            <span className="block text-[10px] text-muted-foreground/80 mt-0.5">Min. 5 females required</span>
                           </FormDescription>
                         </div>
                       </FormItem>
                     )}
                   />
                 </div>
-                {form.formState.errors.inPatient && (
-                  <p className="text-sm text-destructive">{form.formState.errors.inPatient.message}</p>
-                )}
               </CardContent>
             </Card>
           )}
 
-          {/* Step 4: Insurance Companies Selection */}
+          {/* Step 4: Insurance Companies */}
           {currentStep === 4 && (
             <Card className="form-section">
               <CardHeader>
-                <CardTitle className="form-section-title">Insurance Companies</CardTitle>
+                <CardTitle>Insurance Companies</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Select the insurance companies to request quotations from
+                  Select insurers to request quotations from
                 </p>
                 <div className="space-y-3">
                   {insurersList?.map((insurer) => (
@@ -995,654 +739,170 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                     </label>
                   ))}
                 </div>
-                {insurerError && (
-                  <p className="text-sm text-destructive">{insurerError}</p>
-                )}
+                {insurerError && <p className="text-sm text-destructive">{insurerError}</p>}
               </CardContent>
             </Card>
           )}
 
-          {/* Step 5: Group Structure - In-Patient controls rows, synced to other benefits */}
+          {/* Step 5: Packages */}
           {currentStep === 5 && (
-            <div className="space-y-4 md:space-y-6">
-              {/* In-Patient Section - Controls rows and member counts */}
-              <Card className="form-section">
-                <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <CardTitle className="form-section-title mb-0 border-b-0 pb-0 text-base md:text-lg">
-                    {BENEFIT_LABELS.inPatient} Plans
-                    <span className="block sm:inline text-xs font-normal text-muted-foreground sm:ml-2">(Controls group structure)</span>
-                  </CardTitle>
-                  <Button type="button" variant="outline" size="sm" onClick={addGroup} className="w-full sm:w-auto">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Row
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  {/* Mobile Card View */}
-                  <div className="block lg:hidden space-y-4">
-                    {(benefitGroups.inPatient || []).map((group, index) => (
-                      <div key={group.id} className="border rounded-lg p-4 space-y-4 bg-muted/20">
-                        <div className="flex items-center justify-between gap-2">
-                          <Select
-                            value={group.planName}
-                            onValueChange={(value) => updateGroup("inPatient", group.id, "planName", value)}
-                          >
-                            <SelectTrigger className="flex-1">
-                              <SelectValue placeholder="Select a plan" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-popover">
-                              {PLAN_OPTIONS.inPatient.map((plan) => (
-                                <SelectItem key={plan} value={plan}>{plan}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeGroup(index)}
-                            disabled={(benefitGroups.inPatient || []).length === 1}
-                            className="text-muted-foreground hover:text-destructive shrink-0"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                        <div className="space-y-3">
-                          <p className="text-xs font-medium text-muted-foreground">Age 0-59</p>
-                          <div className="grid grid-cols-3 gap-2">
-                            <div>
-                              <label className="text-xs text-muted-foreground">Male</label>
-                              <Input
-                                type="number"
-                                min="0"
-                                className="text-center"
-                                value={group.members.male0to59 || ""}
-                                onChange={(e) => updateGroup("inPatient", group.id, "male0to59", parseInt(e.target.value) || 0)}
-                                placeholder="0"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-xs text-muted-foreground">Female</label>
-                              <Input
-                                type="number"
-                                min="0"
-                                className="text-center"
-                                value={group.members.female0to59 || ""}
-                                onChange={(e) => updateGroup("inPatient", group.id, "female0to59", parseInt(e.target.value) || 0)}
-                                placeholder="0"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-xs text-muted-foreground">Child</label>
-                              <Input
-                                type="number"
-                                min="0"
-                                className="text-center"
-                                value={group.members.child0to59 || ""}
-                                onChange={(e) => updateGroup("inPatient", group.id, "child0to59", parseInt(e.target.value) || 0)}
-                                placeholder="0"
-                              />
-                            </div>
-                          </div>
-                          <p className="text-xs font-medium text-muted-foreground">Age 60-64</p>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="text-xs text-muted-foreground">Male</label>
-                              <Input
-                                type="number"
-                                min="0"
-                                className="text-center"
-                                value={group.members.male60to64 || ""}
-                                onChange={(e) => updateGroup("inPatient", group.id, "male60to64", parseInt(e.target.value) || 0)}
-                                placeholder="0"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-xs text-muted-foreground">Female</label>
-                              <Input
-                                type="number"
-                                min="0"
-                                className="text-center"
-                                value={group.members.female60to64 || ""}
-                                onChange={(e) => updateGroup("inPatient", group.id, "female60to64", parseInt(e.target.value) || 0)}
-                                placeholder="0"
-                              />
-                            </div>
-                          </div>
-                          <div className="flex justify-between items-center pt-2 border-t">
-                            <span className="text-sm font-medium">Total Members</span>
-                            <span className="text-lg font-bold text-primary">{getGroupTotal(group)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    <div className="p-3 bg-muted/50 rounded-lg">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-medium">Grand Total</span>
-                        <span className="font-bold">{getTotalMembers("inPatient")} members</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Desktop Table View */}
-                  <div className="hidden lg:block overflow-x-auto">
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th rowSpan={2} className="align-bottom">Plan Name</th>
-                          <th colSpan={3} className="text-center border-b-0">Age 0-59</th>
-                          <th colSpan={2} className="text-center border-b-0">Age 60-64</th>
-                          <th rowSpan={2} className="align-bottom text-center">Total</th>
-                          <th rowSpan={2}></th>
-                        </tr>
-                        <tr>
-                          <th className="text-center">Male</th>
-                          <th className="text-center">Female</th>
-                          <th className="text-center">Child</th>
-                          <th className="text-center">Male</th>
-                          <th className="text-center">Female</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(benefitGroups.inPatient || []).map((group, index) => (
-                          <tr key={group.id}>
-                            <td>
-                              <Select
-                                value={group.planName}
-                                onValueChange={(value) => updateGroup("inPatient", group.id, "planName", value)}
-                              >
-                                <SelectTrigger className="w-full min-w-[120px]">
-                                  <SelectValue placeholder="Select a plan" />
-                                </SelectTrigger>
-                                <SelectContent className="bg-popover">
-                                  {PLAN_OPTIONS.inPatient.map((plan) => (
-                                    <SelectItem key={plan} value={plan}>{plan}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </td>
-                            <td>
-                              <Input
-                                type="number"
-                                min="0"
-                                className="w-16 text-center"
-                                value={group.members.male0to59 || ""}
-                                onChange={(e) => updateGroup("inPatient", group.id, "male0to59", parseInt(e.target.value) || 0)}
-                                placeholder="0"
-                              />
-                            </td>
-                            <td>
-                              <Input
-                                type="number"
-                                min="0"
-                                className="w-16 text-center"
-                                value={group.members.female0to59 || ""}
-                                onChange={(e) => updateGroup("inPatient", group.id, "female0to59", parseInt(e.target.value) || 0)}
-                                placeholder="0"
-                              />
-                            </td>
-                            <td>
-                              <Input
-                                type="number"
-                                min="0"
-                                className="w-16 text-center"
-                                value={group.members.child0to59 || ""}
-                                onChange={(e) => updateGroup("inPatient", group.id, "child0to59", parseInt(e.target.value) || 0)}
-                                placeholder="0"
-                              />
-                            </td>
-                            <td>
-                              <Input
-                                type="number"
-                                min="0"
-                                className="w-16 text-center"
-                                value={group.members.male60to64 || ""}
-                                onChange={(e) => updateGroup("inPatient", group.id, "male60to64", parseInt(e.target.value) || 0)}
-                                placeholder="0"
-                              />
-                            </td>
-                            <td>
-                              <Input
-                                type="number"
-                                min="0"
-                                className="w-16 text-center"
-                                value={group.members.female60to64 || ""}
-                                onChange={(e) => updateGroup("inPatient", group.id, "female60to64", parseInt(e.target.value) || 0)}
-                                placeholder="0"
-                              />
-                            </td>
-                            <td className="text-center font-medium">{getGroupTotal(group)}</td>
-                            <td>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => removeGroup(index)}
-                                disabled={(benefitGroups.inPatient || []).length === 1}
-                                className="text-muted-foreground hover:text-destructive"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr className="text-xs">
-                          <td className="font-medium">Total</td>
-                          <td className="text-center">{getAgeGroupTotals("inPatient").male0to59}</td>
-                          <td className="text-center">{getAgeGroupTotals("inPatient").female0to59}</td>
-                          <td className="text-center">{getAgeGroupTotals("inPatient").child0to59}</td>
-                          <td className="text-center">{getAgeGroupTotals("inPatient").male60to64}</td>
-                          <td className="text-center">{getAgeGroupTotals("inPatient").female60to64}</td>
-                          <td className="text-center font-medium">{getTotalMembers("inPatient")}</td>
-                          <td></td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Other Benefits - Editable members with per-column total validation */}
-              {selectedBenefits.filter(b => b !== 'inPatient').map((benefitType) => {
-                const benefitTotals = getAgeGroupTotals(benefitType);
-                const ipTotals = getAgeGroupTotals("inPatient");
-                const benefitTotal = getTotalMembers(benefitType);
-                const inPatientTotal = getTotalMembers("inPatient");
-                
-                const hasMismatch = (field: keyof MemberBreakdown) => benefitTotals[field] !== ipTotals[field];
-                const anyMismatch = Object.keys(benefitTotals).some(k => hasMismatch(k as keyof MemberBreakdown));
-                
-                return (
-                  <Card key={benefitType} className="form-section">
-                    <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <CardTitle className="form-section-title mb-0 border-b-0 pb-0 text-base md:text-lg">
-                        {BENEFIT_LABELS[benefitType]} Plans
-                        <span className={cn(
-                          "block sm:inline text-xs font-normal sm:ml-2",
-                          anyMismatch ? "text-destructive" : "text-muted-foreground"
-                        )}>
-                          {anyMismatch ? "(Must match In-Patient)" : "(Match ✓)"}
-                        </span>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {/* Mobile Card View */}
-                      <div className="block lg:hidden space-y-4">
-                        {(benefitGroups[benefitType] || []).map((group) => (
-                          <div key={group.id} className={cn(
-                            "border rounded-lg p-4 space-y-4",
-                            anyMismatch ? "border-destructive/50 bg-destructive/5" : "bg-muted/20"
-                          )}>
-                            <Select
-                              value={group.planName}
-                              onValueChange={(value) => updateGroup(benefitType, group.id, "planName", value)}
-                            >
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Select a plan" />
-                              </SelectTrigger>
-                              <SelectContent className="bg-popover">
-                                {PLAN_OPTIONS[benefitType as keyof typeof PLAN_OPTIONS]?.map((plan) => (
-                                  <SelectItem key={plan} value={plan}>{plan}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <div className="space-y-3">
-                              <p className="text-xs font-medium text-muted-foreground">Age 0-59</p>
-                              <div className="grid grid-cols-3 gap-2">
-                                <div>
-                                  <label className={cn("text-xs", hasMismatch("male0to59") ? "text-destructive" : "text-muted-foreground")}>Male</label>
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    className={cn("text-center", hasMismatch("male0to59") && "border-destructive")}
-                                    value={group.members.male0to59 || ""}
-                                    onChange={(e) => updateGroup(benefitType, group.id, "male0to59", parseInt(e.target.value) || 0)}
-                                    placeholder="0"
-                                  />
-                                </div>
-                                <div>
-                                  <label className={cn("text-xs", hasMismatch("female0to59") ? "text-destructive" : "text-muted-foreground")}>Female</label>
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    className={cn("text-center", hasMismatch("female0to59") && "border-destructive")}
-                                    value={group.members.female0to59 || ""}
-                                    onChange={(e) => updateGroup(benefitType, group.id, "female0to59", parseInt(e.target.value) || 0)}
-                                    placeholder="0"
-                                  />
-                                </div>
-                                <div>
-                                  <label className={cn("text-xs", hasMismatch("child0to59") ? "text-destructive" : "text-muted-foreground")}>Child</label>
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    className={cn("text-center", hasMismatch("child0to59") && "border-destructive")}
-                                    value={group.members.child0to59 || ""}
-                                    onChange={(e) => updateGroup(benefitType, group.id, "child0to59", parseInt(e.target.value) || 0)}
-                                    placeholder="0"
-                                  />
-                                </div>
-                              </div>
-                              <p className="text-xs font-medium text-muted-foreground">Age 60-64</p>
-                              <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                  <label className={cn("text-xs", hasMismatch("male60to64") ? "text-destructive" : "text-muted-foreground")}>Male</label>
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    className={cn("text-center", hasMismatch("male60to64") && "border-destructive")}
-                                    value={group.members.male60to64 || ""}
-                                    onChange={(e) => updateGroup(benefitType, group.id, "male60to64", parseInt(e.target.value) || 0)}
-                                    placeholder="0"
-                                  />
-                                </div>
-                                <div>
-                                  <label className={cn("text-xs", hasMismatch("female60to64") ? "text-destructive" : "text-muted-foreground")}>Female</label>
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    className={cn("text-center", hasMismatch("female60to64") && "border-destructive")}
-                                    value={group.members.female60to64 || ""}
-                                    onChange={(e) => updateGroup(benefitType, group.id, "female60to64", parseInt(e.target.value) || 0)}
-                                    placeholder="0"
-                                  />
-                                </div>
-                              </div>
-                              <div className="flex justify-between items-center pt-2 border-t">
-                                <span className="text-sm font-medium">Total Members</span>
-                                <span className={cn(
-                                  "text-lg font-bold",
-                                  anyMismatch ? "text-destructive" : "text-primary"
-                                )}>{getGroupTotal(group)}</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                        <div className={cn(
-                          "p-3 rounded-lg",
-                          anyMismatch ? "bg-destructive/10" : "bg-muted/50"
-                        )}>
-                          <div className="flex justify-between text-sm">
-                            <span className="font-medium">Grand Total</span>
-                            <span className={cn("font-bold", anyMismatch && "text-destructive")}>
-                              {benefitTotal} / {inPatientTotal} members
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Desktop Table View */}
-                      <div className="hidden lg:block overflow-x-auto">
-                        <table className="data-table">
-                          <thead>
-                            <tr>
-                              <th rowSpan={2} className="align-bottom">Plan Name</th>
-                              <th colSpan={3} className="text-center border-b-0">Age 0-59</th>
-                              <th colSpan={2} className="text-center border-b-0">Age 60-64</th>
-                              <th rowSpan={2} className="align-bottom text-center">Total</th>
-                            </tr>
-                            <tr>
-                              <th className="text-center">Male</th>
-                              <th className="text-center">Female</th>
-                              <th className="text-center">Child</th>
-                              <th className="text-center">Male</th>
-                              <th className="text-center">Female</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {(benefitGroups[benefitType] || []).map((group) => (
-                              <tr key={group.id}>
-                                <td>
-                                  <Select
-                                    value={group.planName}
-                                    onValueChange={(value) => updateGroup(benefitType, group.id, "planName", value)}
-                                  >
-                                    <SelectTrigger className="w-full min-w-[120px]">
-                                      <SelectValue placeholder="Select a plan" />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-popover">
-                                      {PLAN_OPTIONS[benefitType as keyof typeof PLAN_OPTIONS]?.map((plan) => (
-                                        <SelectItem key={plan} value={plan}>{plan}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </td>
-                                <td>
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    className={cn("w-16 text-center", hasMismatch("male0to59") && "border-destructive")}
-                                    value={group.members.male0to59 || ""}
-                                    onChange={(e) => updateGroup(benefitType, group.id, "male0to59", parseInt(e.target.value) || 0)}
-                                    placeholder="0"
-                                  />
-                                </td>
-                                <td>
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    className={cn("w-16 text-center", hasMismatch("female0to59") && "border-destructive")}
-                                    value={group.members.female0to59 || ""}
-                                    onChange={(e) => updateGroup(benefitType, group.id, "female0to59", parseInt(e.target.value) || 0)}
-                                    placeholder="0"
-                                  />
-                                </td>
-                                <td>
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    className={cn("w-16 text-center", hasMismatch("child0to59") && "border-destructive")}
-                                    value={group.members.child0to59 || ""}
-                                    onChange={(e) => updateGroup(benefitType, group.id, "child0to59", parseInt(e.target.value) || 0)}
-                                    placeholder="0"
-                                  />
-                                </td>
-                                <td>
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    className={cn("w-16 text-center", hasMismatch("male60to64") && "border-destructive")}
-                                    value={group.members.male60to64 || ""}
-                                    onChange={(e) => updateGroup(benefitType, group.id, "male60to64", parseInt(e.target.value) || 0)}
-                                    placeholder="0"
-                                  />
-                                </td>
-                                <td>
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    className={cn("w-16 text-center", hasMismatch("female60to64") && "border-destructive")}
-                                    value={group.members.female60to64 || ""}
-                                    onChange={(e) => updateGroup(benefitType, group.id, "female60to64", parseInt(e.target.value) || 0)}
-                                    placeholder="0"
-                                  />
-                                </td>
-                                <td className="text-center font-medium">{getGroupTotal(group)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                          <tfoot>
-                            <tr className="text-xs">
-                              <td className="font-medium">Total</td>
-                              <td className={cn("text-center", hasMismatch("male0to59") && "text-destructive font-medium")}>
-                                {benefitTotals.male0to59}
-                                {hasMismatch("male0to59") && <span className="block">≠{ipTotals.male0to59}</span>}
-                              </td>
-                              <td className={cn("text-center", hasMismatch("female0to59") && "text-destructive font-medium")}>
-                                {benefitTotals.female0to59}
-                                {hasMismatch("female0to59") && <span className="block">≠{ipTotals.female0to59}</span>}
-                              </td>
-                              <td className={cn("text-center", hasMismatch("child0to59") && "text-destructive font-medium")}>
-                                {benefitTotals.child0to59}
-                                {hasMismatch("child0to59") && <span className="block">≠{ipTotals.child0to59}</span>}
-                              </td>
-                              <td className={cn("text-center", hasMismatch("male60to64") && "text-destructive font-medium")}>
-                                {benefitTotals.male60to64}
-                                {hasMismatch("male60to64") && <span className="block">≠{ipTotals.male60to64}</span>}
-                              </td>
-                              <td className={cn("text-center", hasMismatch("female60to64") && "text-destructive font-medium")}>
-                                {benefitTotals.female60to64}
-                                {hasMismatch("female60to64") && <span className="block">≠{ipTotals.female60to64}</span>}
-                              </td>
-                              <td className={cn(
-                                "text-center font-medium",
-                                benefitTotal !== inPatientTotal && "text-destructive"
-                              )}>
-                                {benefitTotal}
-                              </td>
-                            </tr>
-                          </tfoot>
-                        </table>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-              {groupErrors.length > 0 && (
-                <div className="p-4 bg-destructive/10 rounded-lg">
-                  {groupErrors.map((error, idx) => (
-                    <p key={idx} className="text-sm text-destructive">{error}</p>
-                  ))}
-                </div>
-              )}
-            </div>
+            <Card className="form-section">
+              <CardHeader>
+                <CardTitle>Census & Package Structure</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PackageEditor
+                  packages={packages}
+                  onPackagesChange={setPackages}
+                  errors={packageErrors}
+                />
+              </CardContent>
+            </Card>
           )}
 
-          {/* Step 6: Review */}
+          {/* Step 6: Requested Tiers */}
           {currentStep === 6 && (
             <Card className="form-section">
               <CardHeader>
-                <CardTitle className="form-section-title">Review Quotation</CardTitle>
+                <CardTitle>Requested Coverage Tiers</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <RequestedTiersEditor
+                  selectedBenefits={getSelectedBenefitSections()}
+                  requestedTiers={requestedTiers}
+                  onRequestedTiersChange={setRequestedTiers}
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Step 7: Review */}
+          {currentStep === 7 && (
+            <Card className="form-section">
+              <CardHeader>
+                <CardTitle>Review Quotation</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="space-y-4">
-                    <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
-                      Insured Information
-                    </h3>
-                    <div className="space-y-2">
-                      <p><span className="text-muted-foreground">Name:</span> {form.watch("insuredName")}</p>
-                      <p><span className="text-muted-foreground">Address:</span> {form.watch("insuredAddress")}</p>
-                    </div>
+                {/* Insured Info */}
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Insured Name</h4>
+                    <p className="font-medium">{form.getValues("insuredName")}</p>
                   </div>
-                  <div className="space-y-4">
-                    <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
-                      Policy Period
-                    </h3>
-                    <div className="space-y-2">
-                      <p>
-                        <span className="text-muted-foreground">Start:</span>{" "}
-                        {form.watch("startDate") && format(form.watch("startDate"), "PPP")}
-                      </p>
-                      <p>
-                        <span className="text-muted-foreground">End:</span>{" "}
-                        {form.watch("endDate") && format(form.watch("endDate"), "PPP")}
-                      </p>
-                    </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Address</h4>
+                    <p className="text-sm">{form.getValues("insuredAddress")}</p>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
-                    Insurance Companies
-                  </h3>
+                {/* Policy Period */}
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Policy Period</h4>
+                    <p className="font-medium">
+                      {format(form.getValues("startDate"), "dd MMM yyyy")} - {format(form.getValues("endDate"), "dd MMM yyyy")}
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Coverage Rule</h4>
+                    <p className="font-medium">{getCoverageRuleName(watchCoverageRule)}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Total Lives</h4>
+                    <p className="text-2xl font-bold text-primary">{getTotalLives()}</p>
+                  </div>
+                </div>
+
+                {/* Benefits */}
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Selected Benefits</h4>
                   <div className="flex flex-wrap gap-2">
-                    {selectedInsurers.map((insurerCode) => (
-                      <span key={insurerCode} className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
-                        {getInsurerName(insurerCode)}
+                    {watchInPatient && <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">In-Patient</span>}
+                    {watchOutPatient && <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">Out-Patient</span>}
+                    {watchDental && <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">Dental</span>}
+                    {watchMaternity && <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">Maternity</span>}
+                  </div>
+                </div>
+
+                {/* Insurers */}
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Insurance Companies</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedInsurers.map(code => (
+                      <span key={code} className="px-3 py-1 bg-secondary text-secondary-foreground rounded-full text-sm">
+                        {getInsurerName(code)}
                       </span>
                     ))}
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
-                    Benefits & Plans
-                  </h3>
-                  {selectedBenefits.map((benefitType) => (
-                    <div key={benefitType} className="space-y-2">
-                      <h4 className="font-medium text-foreground">{BENEFIT_LABELS[benefitType]}</h4>
-                      <div className="overflow-x-auto">
-                        <table className="data-table text-sm">
-                          <thead>
-                            <tr>
-                              <th rowSpan={2} className="align-bottom">Plan</th>
-                              <th colSpan={3} className="text-center border-b-0">Age 0-59</th>
-                              <th colSpan={2} className="text-center border-b-0">Age 60-64</th>
-                              <th rowSpan={2} className="align-bottom text-center">Total</th>
-                            </tr>
-                            <tr>
-                              <th className="text-center">M</th>
-                              <th className="text-center">F</th>
-                              <th className="text-center">C</th>
-                              <th className="text-center">M</th>
-                              <th className="text-center">F</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {(benefitGroups[benefitType] || []).map((group) => (
-                              <tr key={group.id}>
-                                <td>{group.planName}</td>
-                                <td className="text-center">{group.members.male0to59}</td>
-                                <td className="text-center">{group.members.female0to59}</td>
-                                <td className="text-center">{group.members.child0to59}</td>
-                                <td className="text-center">{group.members.male60to64}</td>
-                                <td className="text-center">{group.members.female60to64}</td>
-                                <td className="text-center font-medium">{getGroupTotal(group)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                          <tfoot>
-                            <tr>
-                              <td className="font-medium">Total</td>
-                              <td colSpan={5}></td>
-                              <td className="text-center font-medium">{getTotalMembers(benefitType)}</td>
-                            </tr>
-                          </tfoot>
-                        </table>
-                      </div>
-                    </div>
-                  ))}
+                {/* Packages Summary */}
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Packages ({packages.length})</h4>
+                  <div className="space-y-2">
+                    {packages.map(pkg => {
+                      const lives = Object.values(pkg.census).reduce((s, v) => s + v, 0);
+                      return (
+                        <div key={pkg.id} className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                          <span className="font-medium">{pkg.name}</span>
+                          <span className="text-sm text-muted-foreground">{lives} lives</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
+
+                {/* Requested Tiers */}
+                {requestedTiers.filter(t => t.tierCode).length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-2">Requested Tiers</h4>
+                    <div className="grid gap-2 md:grid-cols-2">
+                      {requestedTiers.filter(t => t.tierCode).map(rt => (
+                        <div key={rt.sectionCode} className="flex justify-between items-center p-2 bg-muted/30 rounded">
+                          <span className="text-sm">{rt.sectionCode}</span>
+                          <span className="font-medium">{rt.tierCode}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
 
-          {/* Navigation */}
+          {/* Navigation Buttons */}
           <div className="flex justify-between mt-6">
-            <div className="flex gap-2">
+            <div>
+              {currentStep > 1 && (
+                <Button type="button" variant="outline" onClick={prevStep}>
+                  Previous
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-3">
               {onCancel && (
                 <Button type="button" variant="ghost" onClick={onCancel}>
                   Cancel
                 </Button>
               )}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={prevStep}
-                disabled={currentStep === 1}
-              >
-                Previous
-              </Button>
-            </div>
-            <div className="flex gap-2">
-              {currentStep < 6 ? (
+              {currentStep < steps.length ? (
                 <Button type="button" onClick={nextStep}>
                   Next
                 </Button>
               ) : (
-                <>
-                  <Button type="button" variant="outline">
-                    <Eye className="w-4 h-4 mr-2" />
-                    Preview PDF
-                  </Button>
-                  <Button type="submit">
-                    <Save className="w-4 h-4 mr-2" />
-                    {mode === "edit" ? "Update Quotation" : "Save Quotation"}
-                  </Button>
-                </>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      {mode === "edit" ? "Update & Resubmit" : "Generate Quotation"}
+                    </>
+                  )}
+                </Button>
               )}
             </div>
           </div>
