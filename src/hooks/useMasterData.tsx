@@ -823,3 +823,44 @@ export const VALUE_TYPE_LABELS: Record<ValueType, string> = {
   BOOLEAN: "Yes/No",
   NONE: "N/A",
 };
+
+// ============================================
+// Bulk Insert Helpers
+// ============================================
+
+export function useBulkInsertBenefitItems() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (items: Omit<MasterBenefitItem, "created_at" | "updated_at" | "section">[]) => {
+      const { data, error } = await supabase
+        .from("master_benefit_item")
+        .upsert(items, { onConflict: "item_code" })
+        .select();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["master_benefit_item"] });
+    },
+  });
+}
+
+export function useBulkUpsertScheduleTemplateItems() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (items: Omit<ScheduleTemplateItem, "created_at" | "updated_at" | "benefit_item">[]) => {
+      const { data, error } = await supabase
+        .from("schedule_template_section_item")
+        .upsert(items, { onConflict: "template_id,item_code" })
+        .select();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      if (variables.length > 0) {
+        queryClient.invalidateQueries({ queryKey: ["schedule_template_section_item", variables[0].template_id] });
+      }
+      queryClient.invalidateQueries({ queryKey: ["schedule_template_section_item"] });
+    },
+  });
+}
