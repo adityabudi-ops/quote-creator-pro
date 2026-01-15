@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format, addMonths, subDays } from "date-fns";
-import { CalendarIcon, Save, Eye, Loader2 } from "lucide-react";
+import { CalendarIcon, Save, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,29 +19,14 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { createNotification } from "@/hooks/useNotifications";
-import { useInsurers, useCoverageRules, useBenefitSections } from "@/hooks/useMasterData";
+import { useInsurers, useCoverageRules } from "@/hooks/useMasterData";
 import { useGenerateQuotation, type Package as WorkflowPackage, type RequestedTier as WorkflowRequestedTier } from "@/hooks/useQuotationWorkflow";
 import { PackageEditor, type Package } from "./PackageEditor";
+import { TierMappingPreview } from "./TierMappingPreview";
 import { RequestedTiersEditor, type RequestedTier } from "./RequestedTiersEditor";
 import type { QuotationData } from "@/types/quotation";
-import { BENEFITS_OPTIONS_LABELS, type BenefitsOption } from "@/types/quotation";
 import type { Json } from "@/integrations/supabase/types";
 import type { DemographicType } from "@/hooks/useMasterData";
-
-const BENEFITS_OPTIONS: BenefitsOption[] = [
-  'inner_limit_all',
-  'inner_limit_ip_ma_as_charge_op_de',
-  'semi_as_charge_ip_inner_limit_ma_as_charge_op_de',
-  'as_charge_ip_op_de_inner_limit_ma',
-];
-
-// Map benefits option to coverage rule code
-const BENEFITS_TO_COVERAGE_RULE: Record<BenefitsOption, string> = {
-  'inner_limit_all': 'inner_limit_all',
-  'inner_limit_ip_ma_as_charge_op_de': 'inner_limit_ip_ma',
-  'semi_as_charge_ip_inner_limit_ma_as_charge_op_de': 'semi_as_charge_ip',
-  'as_charge_ip_op_de_inner_limit_ma': 'as_charge_all',
-};
 
 const quotationSchema = z.object({
   insuredName: z.string().min(1, "Insured name is required").max(200, "Name too long"),
@@ -92,7 +77,6 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
   const { profile, loading: authLoading } = useAuth();
   const { data: insurersList, isLoading: loadingInsurers } = useInsurers(true);
   const { data: coverageRulesList, isLoading: loadingRules } = useCoverageRules(true);
-  const { data: sectionsList } = useBenefitSections(true);
   const generateQuotation = useGenerateQuotation();
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -852,20 +836,20 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                   </div>
                 </div>
 
-                {/* Requested Tiers */}
-                {requestedTiers.filter(t => t.tierCode).length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-2">Requested Tiers</h4>
-                    <div className="grid gap-2 md:grid-cols-2">
-                      {requestedTiers.filter(t => t.tierCode).map(rt => (
-                        <div key={rt.sectionCode} className="flex justify-between items-center p-2 bg-muted/30 rounded">
-                          <span className="text-sm">{rt.sectionCode}</span>
-                          <span className="font-medium">{rt.tierCode}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* Tier Mapping Preview - Shows actual offered tiers per insurer */}
+                <div className="pt-4 border-t">
+                  <TierMappingPreview
+                    coverageRuleCode={watchCoverageRule}
+                    insurerCodes={selectedInsurers}
+                    packages={packages}
+                    requestedTiers={requestedTiers}
+                    benefitSections={getSelectedBenefitSections()}
+                    policyStartDate={form.getValues("startDate")}
+                    insurerNames={Object.fromEntries(
+                      insurersList?.map(i => [i.insurer_code, i.insurer_name]) || []
+                    )}
+                  />
+                </div>
               </CardContent>
             </Card>
           )}
