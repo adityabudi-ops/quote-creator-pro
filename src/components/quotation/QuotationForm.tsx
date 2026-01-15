@@ -753,6 +753,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
               <CardContent>
                 <RequestedTiersEditor
                   selectedBenefits={getSelectedBenefitSections()}
+                  selectedInsurers={selectedInsurers}
                   requestedTiers={requestedTiers}
                   onRequestedTiersChange={setRequestedTiers}
                 />

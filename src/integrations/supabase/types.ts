@@ -268,6 +268,7 @@ export type Database = {
       master_tier: {
         Row: {
           created_at: string
+          insurer_code: string | null
           is_active: boolean
           section_code: string
           tier_code: string
@@ -276,6 +277,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          insurer_code?: string | null
           is_active?: boolean
           section_code: string
           tier_code: string
@@ -284,6 +286,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          insurer_code?: string | null
           is_active?: boolean
           section_code?: string
           tier_code?: string
@@ -291,6 +294,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "master_tier_insurer_code_fkey"
+            columns: ["insurer_code"]
+            isOneToOne: false
+            referencedRelation: "master_insurer"
+            referencedColumns: ["insurer_code"]
+          },
           {
             foreignKeyName: "master_tier_section_code_fkey"
             columns: ["section_code"]
