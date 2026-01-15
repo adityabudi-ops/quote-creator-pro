@@ -19,8 +19,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { createNotification } from "@/hooks/useNotifications";
-import type { QuotationData, BenefitsOption, InsuranceCompany } from "@/types/quotation";
-import { BENEFITS_OPTIONS_LABELS, INSURANCE_COMPANIES } from "@/types/quotation";
+import { useInsurers, type MasterInsurer } from "@/hooks/useMasterData";
+import type { QuotationData, BenefitsOption } from "@/types/quotation";
+import { BENEFITS_OPTIONS_LABELS } from "@/types/quotation";
 import type { Json } from "@/integrations/supabase/types";
 
 // Plan options per benefit type (sorted ascending)
@@ -73,8 +74,6 @@ const BENEFITS_OPTIONS: BenefitsOption[] = [
   'as_charge_ip_op_de_inner_limit_ma',
 ];
 
-const INSURANCE_COMPANY_OPTIONS: InsuranceCompany[] = ['aca', 'asm', 'sompo'];
-
 const quotationSchema = z.object({
   insuredName: z.string().min(1, "Insured name is required").max(200, "Name too long"),
   insuredAddress: z.string().min(1, "Address is required").max(500, "Address too long"),
@@ -125,21 +124,28 @@ interface QuotationFormProps {
 export function QuotationForm({ mode = "create", initialData, onCancel }: QuotationFormProps) {
   const navigate = useNavigate();
   const { profile, loading: authLoading } = useAuth();
+  const { data: insurersList, isLoading: loadingInsurers } = useInsurers(true);
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedInsurers, setSelectedInsurers] = useState<InsuranceCompany[]>(
+  const [selectedInsurers, setSelectedInsurers] = useState<string[]>(
     initialData?.insuranceCompanies || []
   );
   const [insurerError, setInsurerError] = useState<string>("");
 
-  // Show loading while auth is loading
-  if (authLoading) {
+  // Show loading while auth or insurers are loading
+  if (authLoading || loadingInsurers) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="text-muted-foreground">Loading...</div>
       </div>
     );
   }
+
+  // Helper to get insurer name from code
+  const getInsurerName = (code: string): string => {
+    const insurer = insurersList?.find(i => i.insurer_code === code);
+    return insurer?.insurer_name || code;
+  };
   
   // Initialize benefit groups from initial data if in edit mode
   const getInitialBenefitGroups = (): Record<string, BenefitGroup[]> => {
@@ -421,11 +427,11 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
     return true;
   };
 
-  const toggleInsurer = (insurer: InsuranceCompany) => {
+  const toggleInsurer = (insurerCode: string) => {
     setSelectedInsurers(prev => 
-      prev.includes(insurer) 
-        ? prev.filter(i => i !== insurer)
-        : [...prev, insurer]
+      prev.includes(insurerCode) 
+        ? prev.filter(i => i !== insurerCode)
+        : [...prev, insurerCode]
     );
     setInsurerError("");
   };
@@ -973,19 +979,19 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                   Select the insurance companies to request quotations from
                 </p>
                 <div className="space-y-3">
-                  {INSURANCE_COMPANY_OPTIONS.map((insurer) => (
+                  {insurersList?.map((insurer) => (
                     <label
-                      key={insurer}
+                      key={insurer.insurer_code}
                       className={cn(
                         "flex flex-row items-center space-x-3 rounded-lg border p-4 cursor-pointer transition-colors hover:bg-muted/50",
-                        selectedInsurers.includes(insurer) && "border-primary bg-primary/5"
+                        selectedInsurers.includes(insurer.insurer_code) && "border-primary bg-primary/5"
                       )}
                     >
                       <Checkbox
-                        checked={selectedInsurers.includes(insurer)}
-                        onCheckedChange={() => toggleInsurer(insurer)}
+                        checked={selectedInsurers.includes(insurer.insurer_code)}
+                        onCheckedChange={() => toggleInsurer(insurer.insurer_code)}
                       />
-                      <span className="font-medium">{INSURANCE_COMPANIES[insurer]}</span>
+                      <span className="font-medium">{insurer.insurer_name}</span>
                     </label>
                   ))}
                 </div>
@@ -1543,9 +1549,9 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                     Insurance Companies
                   </h3>
                   <div className="flex flex-wrap gap-2">
-                    {selectedInsurers.map((insurer) => (
-                      <span key={insurer} className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
-                        {INSURANCE_COMPANIES[insurer]}
+                    {selectedInsurers.map((insurerCode) => (
+                      <span key={insurerCode} className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
+                        {getInsurerName(insurerCode)}
                       </span>
                     ))}
                   </div>

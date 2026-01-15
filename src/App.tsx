@@ -18,6 +18,9 @@ import Settings from "./pages/Settings";
 import UserManagement from "./pages/admin/UserManagement";
 import InsuranceCompanies from "./pages/admin/InsuranceCompanies";
 import MasterDataManagement from "./pages/admin/MasterDataManagement";
+import BenefitItemsManagement from "./pages/admin/BenefitItemsManagement";
+import ScheduleTemplateManagement from "./pages/admin/ScheduleTemplateManagement";
+import PricingManagement from "./pages/admin/PricingManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -57,6 +60,9 @@ function AppRoutes() {
                 <Route path="/admin/users" element={<UserManagement />} />
                 <Route path="/admin/insurance" element={<InsuranceCompanies />} />
                 <Route path="/admin/benefits" element={<MasterDataManagement />} />
+                <Route path="/admin/benefit-items" element={<BenefitItemsManagement />} />
+                <Route path="/admin/schedule-templates" element={<ScheduleTemplateManagement />} />
+                <Route path="/admin/pricing" element={<PricingManagement />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
