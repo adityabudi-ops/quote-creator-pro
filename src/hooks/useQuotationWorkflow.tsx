@@ -516,14 +516,18 @@ export interface SaveQuotationInput {
   scheduleItems: ScheduleItem[];
 }
 
+// Maps client-side package IDs to database UUIDs
+type PackageIdMap = Record<string, string>;
+
 export async function saveQuotationData(input: SaveQuotationInput): Promise<void> {
-  // Save packages
+  const packageIdMap: PackageIdMap = {};
+
+  // Save packages and build ID mapping
   for (const pkg of input.packages) {
-    // Insert package
+    // Insert package (let DB generate UUID)
     const { data: savedPackage, error: pkgError } = await supabase
       .from("quotation_package")
       .insert({
-        package_id: pkg.id,
         quotation_id: input.quotationId,
         package_name: pkg.name,
         package_description: pkg.description,
@@ -532,12 +536,15 @@ export async function saveQuotationData(input: SaveQuotationInput): Promise<void
       .single();
 
     if (pkgError) throw pkgError;
+    
+    // Map client-side ID to database UUID
+    packageIdMap[pkg.id] = savedPackage.package_id;
 
-    // Insert census
+    // Insert census using the new database UUID
     const censusRecords = Object.entries(pkg.census)
       .filter(([_, lives]) => lives > 0)
       .map(([demographic, lives]) => ({
-        package_id: pkg.id,
+        package_id: savedPackage.package_id,
         demographic: demographic as DemographicType,
         lives,
       }));
@@ -549,9 +556,9 @@ export async function saveQuotationData(input: SaveQuotationInput): Promise<void
       if (censusError) throw censusError;
     }
 
-    // Insert requested tiers
+    // Insert requested tiers using the new database UUID
     const requestedTierRecords = input.requestedTiers.map(rt => ({
-      package_id: pkg.id,
+      package_id: savedPackage.package_id,
       section_code: rt.sectionCode,
       requested_tier_code: rt.tierCode,
     }));
@@ -564,9 +571,9 @@ export async function saveQuotationData(input: SaveQuotationInput): Promise<void
     }
   }
 
-  // Save insurer offers
+  // Save insurer offers (map client IDs to database UUIDs)
   const offerRecords = input.tierResolution.offers.map(offer => ({
-    package_id: offer.packageId,
+    package_id: packageIdMap[offer.packageId],
     insurer_code: offer.insurerCode,
     section_code: offer.sectionCode,
     offered_tier_code: offer.offeredTierCode,
@@ -581,10 +588,10 @@ export async function saveQuotationData(input: SaveQuotationInput): Promise<void
     .insert(offerRecords);
   if (offerError) throw offerError;
 
-  // Save premium details
+  // Save premium details (map client IDs to database UUIDs)
   const detailRecords = input.premiums.details.map(d => ({
     quotation_id: input.quotationId,
-    package_id: d.packageId,
+    package_id: packageIdMap[d.packageId],
     insurer_code: d.insurerCode,
     section_code: d.sectionCode,
     demographic: d.demographic,
@@ -600,10 +607,10 @@ export async function saveQuotationData(input: SaveQuotationInput): Promise<void
     if (detailError) throw detailError;
   }
 
-  // Save premium summaries
+  // Save premium summaries (map client IDs to database UUIDs)
   const summaryRecords = input.premiums.summaries.map(s => ({
     quotation_id: input.quotationId,
-    package_id: s.packageId,
+    package_id: packageIdMap[s.packageId],
     insurer_code: s.insurerCode,
     gross_premium_package: s.grossPremiumPackage,
     fees_package: s.feesPackage,
@@ -631,10 +638,10 @@ export async function saveQuotationData(input: SaveQuotationInput): Promise<void
     .insert(overallRecords);
   if (overallError) throw overallError;
 
-  // Save schedule items
+  // Save schedule items (map client IDs to database UUIDs)
   const scheduleRecords = input.scheduleItems.map(item => ({
     quotation_id: input.quotationId,
-    package_id: item.packageId,
+    package_id: packageIdMap[item.packageId],
     insurer_code: item.insurerCode,
     section_code: item.sectionCode,
     item_code: item.itemCode,
