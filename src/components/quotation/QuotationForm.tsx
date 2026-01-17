@@ -832,19 +832,30 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                   </div>
                 </div>
 
-                {/* Tier Mapping Preview - Shows actual offered tiers per insurer */}
-                <div className="pt-4 border-t">
-                  <TierMappingPreview
-                    coverageRuleCode={watchCoverageRule}
-                    insurerCodes={selectedInsurers}
-                    packages={packages}
-                    packageRequestedTiers={packageRequestedTiers}
-                    benefitSections={getSelectedBenefitSections()}
-                    policyStartDate={form.getValues("startDate")}
-                    insurerNames={Object.fromEntries(
-                      insurersList?.map(i => [i.insurer_code, i.insurer_name]) || []
-                    )}
-                  />
+                {/* Requested Tiers Summary */}
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Requested Tiers by Package</h4>
+                  <div className="space-y-3">
+                    {packages.map(pkg => {
+                      const pkgTiers = packageRequestedTiers.find(p => p.packageId === pkg.id)?.tiers || [];
+                      return (
+                        <div key={pkg.id} className="p-3 bg-muted/50 rounded-lg">
+                          <p className="font-medium mb-2">{pkg.name}</p>
+                          <div className="flex flex-wrap gap-2">
+                            {getSelectedBenefitSections().map(section => {
+                              const tier = pkgTiers.find(t => t.sectionCode === section);
+                              return (
+                                <span key={section} className="text-sm">
+                                  <span className="text-muted-foreground">{section}:</span>{" "}
+                                  <span className="font-medium">{tier?.tierCode || "No preference"}</span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </CardContent>
             </Card>
