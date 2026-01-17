@@ -2,17 +2,31 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { useTiers, useInsurers, type MasterTier } from "@/hooks/useMasterData";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { DemographicType } from "@/hooks/useMasterData";
 
 export interface RequestedTier {
   sectionCode: string;
   tierCode: string | null;
 }
 
+export interface PackageRequestedTiers {
+  packageId: string;
+  tiers: RequestedTier[];
+}
+
+interface Package {
+  id: string;
+  name: string;
+  census: Record<DemographicType, number>;
+}
+
 interface RequestedTiersEditorProps {
+  packages: Package[];
   selectedBenefits: string[]; // Section codes: IP, OP, DE, MA
   selectedInsurers: string[]; // Insurer codes
-  requestedTiers: RequestedTier[];
-  onRequestedTiersChange: (tiers: RequestedTier[]) => void;
+  packageRequestedTiers: PackageRequestedTiers[];
+  onPackageRequestedTiersChange: (tiers: PackageRequestedTiers[]) => void;
 }
 
 const SECTION_LABELS: Record<string, string> = {
@@ -23,10 +37,11 @@ const SECTION_LABELS: Record<string, string> = {
 };
 
 export function RequestedTiersEditor({
+  packages,
   selectedBenefits,
   selectedInsurers,
-  requestedTiers,
-  onRequestedTiersChange,
+  packageRequestedTiers,
+  onPackageRequestedTiersChange,
 }: RequestedTiersEditorProps) {
   const { data: allTiers, isLoading: loadingTiers } = useTiers(undefined, true);
   const { data: insurers } = useInsurers(true);
@@ -63,17 +78,45 @@ export function RequestedTiersEditor({
     return Array.from(tierMap.values());
   };
 
-  const getSelectedTier = (sectionCode: string): string => {
-    return requestedTiers.find(t => t.sectionCode === sectionCode)?.tierCode || "";
+  const getPackageTiers = (packageId: string): RequestedTier[] => {
+    return packageRequestedTiers.find(p => p.packageId === packageId)?.tiers || [];
   };
 
-  const updateTier = (sectionCode: string, tierCode: string | null) => {
-    const existing = requestedTiers.filter(t => t.sectionCode !== sectionCode);
-    onRequestedTiersChange([...existing, { sectionCode, tierCode }]);
+  const getSelectedTier = (packageId: string, sectionCode: string): string => {
+    const pkgTiers = getPackageTiers(packageId);
+    return pkgTiers.find(t => t.sectionCode === sectionCode)?.tierCode || "";
+  };
+
+  const updateTier = (packageId: string, sectionCode: string, tierCode: string | null) => {
+    const existingPkg = packageRequestedTiers.find(p => p.packageId === packageId);
+    
+    if (existingPkg) {
+      // Update existing package's tiers
+      const updatedTiers = existingPkg.tiers.filter(t => t.sectionCode !== sectionCode);
+      updatedTiers.push({ sectionCode, tierCode });
+      
+      onPackageRequestedTiersChange(
+        packageRequestedTiers.map(p => 
+          p.packageId === packageId 
+            ? { ...p, tiers: updatedTiers }
+            : p
+        )
+      );
+    } else {
+      // Add new package entry
+      onPackageRequestedTiersChange([
+        ...packageRequestedTiers,
+        { packageId, tiers: [{ sectionCode, tierCode }] }
+      ]);
+    }
   };
 
   const getInsurerName = (code: string) => {
     return insurers?.find(i => i.insurer_code === code)?.insurer_name || code;
+  };
+
+  const getLivesCount = (pkg: Package): number => {
+    return Object.values(pkg.census).reduce((sum, v) => sum + v, 0);
   };
 
   if (loadingTiers) {
@@ -88,74 +131,96 @@ export function RequestedTiersEditor({
     );
   }
 
+  if (packages.length === 0) {
+    return (
+      <div className="p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
+        Please add at least one package first.
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold">Requested Coverage Tiers</h3>
+        <h3 className="text-lg font-semibold">Requested Coverage Tiers by Package</h3>
         <p className="text-sm text-muted-foreground">
-          Select target tiers for each benefit type. These are benchmarks - actual offered tiers may vary by insurer.
+          Select target tiers for each benefit type per package. Different packages can have different tier requirements.
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {selectedBenefits.map((sectionCode) => {
-          const uniqueTiers = getUniqueTiersForSection(sectionCode);
-          const selectedTier = getSelectedTier(sectionCode);
-          const selectedTierInfo = uniqueTiers.find(t => t.tierCode === selectedTier);
+      {packages.map((pkg) => (
+        <Card key={pkg.id}>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center justify-between">
+              <span>{pkg.name}</span>
+              <Badge variant="secondary" className="font-normal">
+                {getLivesCount(pkg)} lives
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2">
+              {selectedBenefits.map((sectionCode) => {
+                const uniqueTiers = getUniqueTiersForSection(sectionCode);
+                const selectedTier = getSelectedTier(pkg.id, sectionCode);
+                const selectedTierInfo = uniqueTiers.find(t => t.tierCode === selectedTier);
 
-          return (
-            <div key={sectionCode} className="space-y-2">
-              <Label className="flex items-center gap-2">
-                {SECTION_LABELS[sectionCode] || sectionCode}
-                {sectionCode === "IP" && (
-                  <span className="text-xs text-primary font-normal">(Mandatory)</span>
-                )}
-              </Label>
-              <Select
-                value={selectedTier || "__no_preference__"}
-                onValueChange={(value) => updateTier(sectionCode, value === "__no_preference__" ? null : value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={`Select ${SECTION_LABELS[sectionCode]} tier`} />
-                </SelectTrigger>
-                <SelectContent className="bg-popover">
-                  <SelectItem value="__no_preference__">No preference</SelectItem>
-                  {uniqueTiers.map((tier) => (
-                    <SelectItem key={tier.tierCode} value={tier.tierCode}>
-                      <div className="flex items-center gap-2">
-                        <span>{tier.tierLabel}</span>
-                        <span className="text-xs text-muted-foreground">
-                          ({tier.insurers.length === selectedInsurers.length 
-                            ? "all insurers" 
-                            : tier.insurers.map(getInsurerName).join(", ")})
-                        </span>
+                return (
+                  <div key={sectionCode} className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      {SECTION_LABELS[sectionCode] || sectionCode}
+                      {sectionCode === "IP" && (
+                        <span className="text-xs text-primary font-normal">(Mandatory)</span>
+                      )}
+                    </Label>
+                    <Select
+                      value={selectedTier || "__no_preference__"}
+                      onValueChange={(value) => updateTier(pkg.id, sectionCode, value === "__no_preference__" ? null : value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={`Select ${SECTION_LABELS[sectionCode]} tier`} />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover">
+                        <SelectItem value="__no_preference__">No preference</SelectItem>
+                        {uniqueTiers.map((tier) => (
+                          <SelectItem key={tier.tierCode} value={tier.tierCode}>
+                            <div className="flex items-center gap-2">
+                              <span>{tier.tierLabel}</span>
+                              <span className="text-xs text-muted-foreground">
+                                ({tier.insurers.length === selectedInsurers.length 
+                                  ? "all insurers" 
+                                  : tier.insurers.map(getInsurerName).join(", ")})
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    {/* Show which insurers have the selected tier */}
+                    {selectedTierInfo && selectedTierInfo.insurers.length < selectedInsurers.length && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        <span className="text-xs text-amber-600">Available for:</span>
+                        {selectedTierInfo.insurers.map(code => (
+                          <Badge key={code} variant="outline" className="text-[10px] px-1.5 py-0">
+                            {getInsurerName(code)}
+                          </Badge>
+                        ))}
                       </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              {/* Show which insurers have the selected tier */}
-              {selectedTierInfo && selectedTierInfo.insurers.length < selectedInsurers.length && (
-                <div className="flex flex-wrap gap-1 mt-1">
-                  <span className="text-xs text-amber-600">Available for:</span>
-                  {selectedTierInfo.insurers.map(code => (
-                    <Badge key={code} variant="outline" className="text-[10px] px-1.5 py-0">
-                      {getInsurerName(code)}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-              
-              {uniqueTiers.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  No tiers available for selected insurers
-                </p>
-              )}
+                    )}
+                    
+                    {uniqueTiers.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        No tiers available for selected insurers
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
+          </CardContent>
+        </Card>
+      ))}
 
       {/* Tier Availability Summary */}
       <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-2">

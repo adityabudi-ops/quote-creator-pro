@@ -24,6 +24,11 @@ export interface RequestedTier {
   tierCode: string | null;
 }
 
+export interface PackageRequestedTiers {
+  packageId: string;
+  tiers: RequestedTier[];
+}
+
 export interface TierOffer {
   packageId: string;
   insurerCode: string;
@@ -69,7 +74,7 @@ export interface QuotationGenerationInput {
   coverageRuleCode: string;
   insurerCodes: string[];
   packages: Package[];
-  requestedTiers: RequestedTier[];
+  packageRequestedTiers: PackageRequestedTiers[]; // Per-package requested tiers
   benefitSections: string[]; // Selected benefit sections (IP, OP, DE, MA)
   policyStartDate: Date;
 }
@@ -184,13 +189,16 @@ export async function resolveTiers(
 
   for (const pkg of input.packages) {
     tierMapping[pkg.id] = {};
+    
+    // Get requested tiers for this specific package
+    const pkgRequestedTiers = input.packageRequestedTiers.find(p => p.packageId === pkg.id)?.tiers || [];
 
     for (const insurerCode of input.insurerCodes) {
       tierMapping[pkg.id][insurerCode] = {};
 
       for (const sectionCode of input.benefitSections) {
-        // Find requested tier for this section
-        const requestedTier = input.requestedTiers.find(t => t.sectionCode === sectionCode);
+        // Find requested tier for this section from this package's tiers
+        const requestedTier = pkgRequestedTiers.find(t => t.sectionCode === sectionCode);
         let offeredTierCode: string | null = null;
         let templateId: string | null = null;
         let pricingDate: string | null = null;
@@ -506,7 +514,7 @@ export async function captureScheduleItems(
 export interface SaveQuotationInput {
   quotationId: string;
   packages: Package[];
-  requestedTiers: RequestedTier[];
+  packageRequestedTiers: PackageRequestedTiers[];
   tierResolution: TierResolutionResult;
   premiums: {
     details: PremiumDetail[];
@@ -557,7 +565,9 @@ export async function saveQuotationData(input: SaveQuotationInput): Promise<void
     }
 
     // Insert requested tiers using the new database UUID
-    const requestedTierRecords = input.requestedTiers.map(rt => ({
+    // Get requested tiers for this specific package
+    const pkgRequestedTiers = input.packageRequestedTiers.find(p => p.packageId === pkg.id)?.tiers || [];
+    const requestedTierRecords = pkgRequestedTiers.map(rt => ({
       package_id: savedPackage.package_id,
       section_code: rt.sectionCode,
       requested_tier_code: rt.tierCode,
@@ -687,7 +697,7 @@ export function useGenerateQuotation() {
       await saveQuotationData({
         quotationId: input.quotationId,
         packages: input.packages,
-        requestedTiers: input.requestedTiers,
+        packageRequestedTiers: input.packageRequestedTiers,
         tierResolution,
         premiums,
         scheduleItems,
