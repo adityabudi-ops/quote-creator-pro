@@ -19,6 +19,11 @@ interface RequestedTier {
   tierCode: string | null;
 }
 
+interface PackageRequestedTiers {
+  packageId: string;
+  tiers: RequestedTier[];
+}
+
 interface TierOffer {
   packageId: string;
   insurerCode: string;
@@ -32,7 +37,7 @@ interface TierMappingPreviewProps {
   coverageRuleCode: string;
   insurerCodes: string[];
   packages: Package[];
-  requestedTiers: RequestedTier[];
+  packageRequestedTiers: PackageRequestedTiers[];
   benefitSections: string[];
   policyStartDate: Date;
   insurerNames: Record<string, string>;
@@ -123,7 +128,7 @@ export function TierMappingPreview({
   coverageRuleCode,
   insurerCodes,
   packages,
-  requestedTiers,
+  packageRequestedTiers,
   benefitSections,
   policyStartDate,
   insurerNames,
@@ -139,9 +144,12 @@ export function TierMappingPreview({
       const effectiveDate = format(policyStartDate, "yyyy-MM-dd");
 
       for (const pkg of packages) {
+        // Get requested tiers for this specific package
+        const pkgRequestedTiers = packageRequestedTiers.find(p => p.packageId === pkg.id)?.tiers || [];
+
         for (const insurerCode of insurerCodes) {
           for (const sectionCode of benefitSections) {
-            const requestedTier = requestedTiers.find(t => t.sectionCode === sectionCode);
+            const requestedTier = pkgRequestedTiers.find(t => t.sectionCode === sectionCode);
             let offeredTierCode: string | null = null;
             let status: "QUOTED" | "NA" | "ERROR" = "QUOTED";
             let notes = "";
@@ -211,7 +219,7 @@ export function TierMappingPreview({
     if (coverageRuleCode && insurerCodes.length > 0 && packages.length > 0 && benefitSections.length > 0) {
       resolveTiers();
     }
-  }, [coverageRuleCode, insurerCodes, packages, requestedTiers, benefitSections, policyStartDate]);
+  }, [coverageRuleCode, insurerCodes, packages, packageRequestedTiers, benefitSections, policyStartDate]);
 
   if (isLoading) {
     return (
@@ -229,8 +237,9 @@ export function TierMappingPreview({
     );
   };
 
-  const getRequestedTier = (sectionCode: string): string | null => {
-    return requestedTiers.find(t => t.sectionCode === sectionCode)?.tierCode || null;
+  const getRequestedTier = (packageId: string, sectionCode: string): string | null => {
+    const pkgTiers = packageRequestedTiers.find(p => p.packageId === packageId)?.tiers || [];
+    return pkgTiers.find(t => t.sectionCode === sectionCode)?.tierCode || null;
   };
 
   return (
@@ -263,7 +272,7 @@ export function TierMappingPreview({
                 </TableHeader>
                 <TableBody>
                   {benefitSections.map(sectionCode => {
-                    const requestedTier = getRequestedTier(sectionCode);
+                    const requestedTier = getRequestedTier(pkg.id, sectionCode);
                     return (
                       <TableRow key={sectionCode}>
                         <TableCell className="font-medium">

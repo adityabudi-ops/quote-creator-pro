@@ -20,10 +20,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { createNotification } from "@/hooks/useNotifications";
 import { useInsurers, useCoverageRules } from "@/hooks/useMasterData";
-import { useGenerateQuotation, type Package as WorkflowPackage, type RequestedTier as WorkflowRequestedTier } from "@/hooks/useQuotationWorkflow";
+import { useGenerateQuotation, type Package as WorkflowPackage, type PackageRequestedTiers as WorkflowPackageRequestedTiers } from "@/hooks/useQuotationWorkflow";
 import { PackageEditor, type Package } from "./PackageEditor";
 import { TierMappingPreview } from "./TierMappingPreview";
-import { RequestedTiersEditor, type RequestedTier } from "./RequestedTiersEditor";
+import { RequestedTiersEditor, type PackageRequestedTiers } from "./RequestedTiersEditor";
 import type { QuotationData } from "@/types/quotation";
 import type { Json } from "@/integrations/supabase/types";
 import type { DemographicType } from "@/hooks/useMasterData";
@@ -89,7 +89,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
     { id: `pkg-${Date.now()}`, name: "Package A", census: { ...DEFAULT_CENSUS } },
   ]);
   const [packageErrors, setPackageErrors] = useState<string[]>([]);
-  const [requestedTiers, setRequestedTiers] = useState<RequestedTier[]>([]);
+  const [packageRequestedTiers, setPackageRequestedTiers] = useState<PackageRequestedTiers[]>([]);
 
   const form = useForm<QuotationFormData>({
     resolver: zodResolver(quotationSchema),
@@ -286,10 +286,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
             ...p,
             census: p.census,
           })) as WorkflowPackage[],
-          requestedTiers: requestedTiers.map(rt => ({
-            sectionCode: rt.sectionCode,
-            tierCode: rt.tierCode,
-          })) as WorkflowRequestedTier[],
+          packageRequestedTiers: packageRequestedTiers as WorkflowPackageRequestedTiers[],
           benefitSections: selectedBenefits,
           policyStartDate: data.startDate,
         });
@@ -336,10 +333,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
             ...p,
             census: p.census,
           })) as WorkflowPackage[],
-          requestedTiers: requestedTiers.map(rt => ({
-            sectionCode: rt.sectionCode,
-            tierCode: rt.tierCode,
-          })) as WorkflowRequestedTier[],
+          packageRequestedTiers: packageRequestedTiers as WorkflowPackageRequestedTiers[],
           benefitSections: selectedBenefits,
           policyStartDate: data.startDate,
         });
@@ -752,10 +746,11 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
               </CardHeader>
               <CardContent>
                 <RequestedTiersEditor
+                  packages={packages}
                   selectedBenefits={getSelectedBenefitSections()}
                   selectedInsurers={selectedInsurers}
-                  requestedTiers={requestedTiers}
-                  onRequestedTiersChange={setRequestedTiers}
+                  packageRequestedTiers={packageRequestedTiers}
+                  onPackageRequestedTiersChange={setPackageRequestedTiers}
                 />
               </CardContent>
             </Card>
@@ -843,7 +838,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                     coverageRuleCode={watchCoverageRule}
                     insurerCodes={selectedInsurers}
                     packages={packages}
-                    requestedTiers={requestedTiers}
+                    packageRequestedTiers={packageRequestedTiers}
                     benefitSections={getSelectedBenefitSections()}
                     policyStartDate={form.getValues("startDate")}
                     insurerNames={Object.fromEntries(
