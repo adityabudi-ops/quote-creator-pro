@@ -228,96 +228,106 @@ export default function PricingManagement() {
       {/* Filters & Actions */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-4 items-end">
-            <div className="space-y-2 min-w-[140px]">
-              <Label>Coverage Rule</Label>
-              <Select value={filterRule} onValueChange={setFilterRule}>
-                <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  {coverageRules?.map(r => (
-                    <SelectItem key={r.coverage_rule_code} value={r.coverage_rule_code}>
-                      {r.coverage_rule_code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="space-y-4">
+            {/* Filters Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="space-y-2">
+                <Label className="text-xs">Coverage Rule</Label>
+                <Select value={filterRule} onValueChange={setFilterRule}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="All" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    {coverageRules?.map(r => (
+                      <SelectItem key={r.coverage_rule_code} value={r.coverage_rule_code}>
+                        {r.coverage_rule_code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Insurer</Label>
+                <Select value={filterInsurer} onValueChange={setFilterInsurer}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="All" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    {insurers?.map(i => (
+                      <SelectItem key={i.insurer_code} value={i.insurer_code}>
+                        {i.insurer_code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Section</Label>
+                <Select value={filterSection} onValueChange={setFilterSection}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="All" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    {sections?.map(s => (
+                      <SelectItem key={s.section_code} value={s.section_code}>
+                        {s.section_code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Tier</Label>
+                <Select value={filterTier} onValueChange={setFilterTier}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="All" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    {tiers?.map(t => (
+                      <SelectItem key={t.tier_code} value={t.tier_code}>
+                        {t.tier_code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-2 min-w-[140px]">
-              <Label>Insurer</Label>
-              <Select value={filterInsurer} onValueChange={setFilterInsurer}>
-                <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  {insurers?.map(i => (
-                    <SelectItem key={i.insurer_code} value={i.insurer_code}>
-                      {i.insurer_code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-2 justify-end pt-2 border-t">
+              <Button variant="outline" size="sm" onClick={downloadTemplate}>
+                <Download className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Download</span> Template
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                <Upload className="w-4 h-4 mr-2" />
+                Import
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+              <Button size="sm" onClick={() => openPriceDialog()}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Pricing
+              </Button>
             </div>
-            <div className="space-y-2 min-w-[100px]">
-              <Label>Section</Label>
-              <Select value={filterSection} onValueChange={setFilterSection}>
-                <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  {sections?.map(s => (
-                    <SelectItem key={s.section_code} value={s.section_code}>
-                      {s.section_code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2 min-w-[100px]">
-              <Label>Tier</Label>
-              <Select value={filterTier} onValueChange={setFilterTier}>
-                <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  {tiers?.map(t => (
-                    <SelectItem key={t.tier_code} value={t.tier_code}>
-                      {t.tier_code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex-1" />
-            <Button variant="outline" onClick={downloadTemplate}>
-              <Download className="w-4 h-4 mr-2" />
-              Template
-            </Button>
-            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-              <Upload className="w-4 h-4 mr-2" />
-              Import
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              className="hidden"
-              onChange={handleFileUpload}
-            />
-            <Button onClick={() => openPriceDialog()}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Pricing
-            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Pricing Table */}
-      <Card>
+      {/* Pricing Table - Desktop */}
+      <Card className="hidden lg:block">
         <CardHeader>
           <CardTitle>Pricing Records ({pricing?.length || 0} entries)</CardTitle>
           <CardDescription>Annual premiums by demographic band</CardDescription>
         </CardHeader>
         <CardContent>
           {groupedRows.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">No pricing records found.</p>
+            <div className="text-center py-12">
+              <DollarSign className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
+              <p className="text-muted-foreground">No pricing records found</p>
+              <p className="text-sm text-muted-foreground/70">Add pricing or adjust filters</p>
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -356,6 +366,48 @@ export default function PricingManagement() {
           )}
         </CardContent>
       </Card>
+
+      {/* Pricing Cards - Mobile/Tablet */}
+      <div className="lg:hidden space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold">Pricing Records ({pricing?.length || 0})</h3>
+        </div>
+        {groupedRows.length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="py-12 text-center">
+              <DollarSign className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
+              <p className="text-muted-foreground">No pricing records found</p>
+            </CardContent>
+          </Card>
+        ) : (
+          groupedRows.map((row, idx) => (
+            <Card key={idx}>
+              <CardContent className="p-4">
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <Badge variant="outline" className="font-mono text-xs">{row.insurer_code}</Badge>
+                  <Badge variant="secondary" className="text-xs">{row.section_code}</Badge>
+                  <Badge className="text-xs">{row.tier_code}</Badge>
+                </div>
+                <div className="text-xs text-muted-foreground mb-3">
+                  <span className="font-mono">{row.coverage_rule_code}</span>
+                  <span className="mx-2">•</span>
+                  <span>Effective: {format(new Date(row.effective_date), "MMM d, yyyy")}</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {DEMOGRAPHICS.map(d => (
+                    <div key={d} className="bg-muted/50 rounded-lg p-2 text-center">
+                      <p className="text-[10px] text-muted-foreground">{DEMOGRAPHIC_LABELS[d]}</p>
+                      <p className="font-mono text-sm font-medium">
+                        {row.demographics[d] != null ? row.demographics[d].toLocaleString() : "-"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
 
       {/* Add/Edit Pricing Dialog */}
       <Dialog open={priceDialog} onOpenChange={setPriceDialog}>
