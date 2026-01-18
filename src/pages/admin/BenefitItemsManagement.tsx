@@ -236,12 +236,12 @@ export default function BenefitItemsManagement() {
       </div>
 
       {/* Actions */}
-      <div className="flex flex-wrap gap-2 justify-end">
-        <Button variant="outline" onClick={downloadTemplate}>
+      <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
+        <Button variant="outline" size="sm" onClick={downloadTemplate} className="justify-center">
           <Download className="w-4 h-4 mr-2" />
-          Download Template
+          <span className="hidden sm:inline">Download</span> Template
         </Button>
-        <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+        <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="justify-center">
           <Upload className="w-4 h-4 mr-2" />
           Bulk Import
         </Button>
@@ -290,58 +290,110 @@ export default function BenefitItemsManagement() {
                     {sectionItems.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-4">No items configured</p>
                     ) : (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Order</TableHead>
-                            <TableHead>Code</TableHead>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Unit</TableHead>
-                            <TableHead>Period</TableHead>
-                            <TableHead>Type</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
+                      <>
+                        {/* Desktop Table */}
+                        <div className="hidden lg:block">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-16">Order</TableHead>
+                                <TableHead>Code</TableHead>
+                                <TableHead>Name</TableHead>
+                                <TableHead>Unit</TableHead>
+                                <TableHead>Period</TableHead>
+                                <TableHead>Type</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {sectionItems.sort((a, b) => a.display_order - b.display_order).map((item) => (
+                                <TableRow key={item.item_code} className={item.is_group_header ? "bg-muted/30 font-medium" : ""}>
+                                  <TableCell className="font-mono text-xs">{item.display_order}</TableCell>
+                                  <TableCell className="font-mono text-xs">{item.item_code}</TableCell>
+                                  <TableCell>
+                                    {item.sub_label && <span className="text-muted-foreground mr-1">{item.sub_label}</span>}
+                                    {item.item_name}
+                                  </TableCell>
+                                  <TableCell className="text-muted-foreground text-sm">{item.unit_text || "-"}</TableCell>
+                                  <TableCell className="text-muted-foreground text-sm">{item.limit_period || "-"}</TableCell>
+                                  <TableCell>
+                                    {item.is_group_header ? (
+                                      <Badge variant="secondary">Header</Badge>
+                                    ) : item.parent_item_code ? (
+                                      <Badge variant="outline">Child</Badge>
+                                    ) : (
+                                      <Badge variant="default">Item</Badge>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant={item.is_active ? "default" : "secondary"}>
+                                      {item.is_active ? "Active" : "Inactive"}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex justify-end gap-1">
+                                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openItemDialog(item)}>
+                                        <Edit2 className="w-3 h-3" />
+                                      </Button>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteDialog({ code: item.item_code, name: item.item_name })}>
+                                        <Trash2 className="w-3 h-3 text-destructive" />
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+
+                        {/* Mobile Card View */}
+                        <div className="lg:hidden space-y-2">
                           {sectionItems.sort((a, b) => a.display_order - b.display_order).map((item) => (
-                            <TableRow key={item.item_code} className={item.is_group_header ? "bg-muted/30 font-medium" : ""}>
-                              <TableCell className="font-mono text-xs">{item.display_order}</TableCell>
-                              <TableCell className="font-mono text-xs">{item.item_code}</TableCell>
-                              <TableCell>
-                                {item.sub_label && <span className="text-muted-foreground mr-1">{item.sub_label}</span>}
-                                {item.item_name}
-                              </TableCell>
-                              <TableCell className="text-muted-foreground text-sm">{item.unit_text || "-"}</TableCell>
-                              <TableCell className="text-muted-foreground text-sm">{item.limit_period || "-"}</TableCell>
-                              <TableCell>
-                                {item.is_group_header ? (
-                                  <Badge variant="secondary">Header</Badge>
-                                ) : item.parent_item_code ? (
-                                  <Badge variant="outline">Child</Badge>
-                                ) : (
-                                  <Badge variant="default">Item</Badge>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant={item.is_active ? "default" : "secondary"}>
-                                  {item.is_active ? "Active" : "Inactive"}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <div className="flex justify-end gap-1">
+                            <div 
+                              key={item.item_code} 
+                              className={`p-3 rounded-lg border ${item.is_group_header ? "bg-muted/30" : "bg-card"} ${!item.is_active ? "opacity-60" : ""}`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                                    <span className="font-mono text-[10px] text-muted-foreground">#{item.display_order}</span>
+                                    {item.is_group_header ? (
+                                      <Badge variant="secondary" className="text-[10px] h-5">Header</Badge>
+                                    ) : item.parent_item_code ? (
+                                      <Badge variant="outline" className="text-[10px] h-5">Child</Badge>
+                                    ) : (
+                                      <Badge variant="default" className="text-[10px] h-5">Item</Badge>
+                                    )}
+                                    {!item.is_active && (
+                                      <Badge variant="secondary" className="text-[10px] h-5">Inactive</Badge>
+                                    )}
+                                  </div>
+                                  <p className="font-medium text-sm">
+                                    {item.sub_label && <span className="text-muted-foreground mr-1">{item.sub_label}</span>}
+                                    {item.item_name}
+                                  </p>
+                                  <p className="font-mono text-[10px] text-muted-foreground mt-0.5">{item.item_code}</p>
+                                  {(item.unit_text || item.limit_period) && (
+                                    <div className="flex flex-wrap gap-2 mt-1.5 text-xs text-muted-foreground">
+                                      {item.unit_text && <span>{item.unit_text}</span>}
+                                      {item.limit_period && <span>• {item.limit_period}</span>}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
                                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openItemDialog(item)}>
-                                    <Edit2 className="w-3 h-3" />
+                                    <Edit2 className="w-4 h-4" />
                                   </Button>
                                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteDialog({ code: item.item_code, name: item.item_name })}>
-                                    <Trash2 className="w-3 h-3 text-destructive" />
+                                    <Trash2 className="w-4 h-4 text-destructive" />
                                   </Button>
                                 </div>
-                              </TableCell>
-                            </TableRow>
+                              </div>
+                            </div>
                           ))}
-                        </TableBody>
-                      </Table>
+                        </div>
+                      </>
                     )}
                   </CardContent>
                 </CollapsibleContent>

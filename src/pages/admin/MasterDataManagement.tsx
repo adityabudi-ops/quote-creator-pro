@@ -281,22 +281,22 @@ export default function MasterDataManagement() {
 
       {/* Main Content with Tabs */}
       <Tabs defaultValue="rules" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="rules" className="flex items-center gap-2">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto gap-1 p-1">
+          <TabsTrigger value="rules" className="flex items-center gap-2 py-2.5 px-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <FileText className="w-4 h-4" />
-            Coverage Rules
+            <span className="hidden sm:inline">Coverage</span> Rules
           </TabsTrigger>
-          <TabsTrigger value="insurers" className="flex items-center gap-2">
+          <TabsTrigger value="insurers" className="flex items-center gap-2 py-2.5 px-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Building2 className="w-4 h-4" />
             Insurers
           </TabsTrigger>
-          <TabsTrigger value="sections" className="flex items-center gap-2">
+          <TabsTrigger value="sections" className="flex items-center gap-2 py-2.5 px-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Layers className="w-4 h-4" />
-            Sections & Tiers
+            <span className="hidden sm:inline">Sections &</span> Tiers
           </TabsTrigger>
-          <TabsTrigger value="items" className="flex items-center gap-2">
+          <TabsTrigger value="items" className="flex items-center gap-2 py-2.5 px-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Tag className="w-4 h-4" />
-            Benefit Items
+            <span className="hidden sm:inline">Benefit</span> Items
           </TabsTrigger>
         </TabsList>
 
@@ -387,11 +387,11 @@ export default function MasterDataManagement() {
 
         {/* Sections & Tiers Tab */}
         <TabsContent value="sections" className="space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <Label className="text-sm text-muted-foreground whitespace-nowrap">Filter by Insurer:</Label>
               <Select value={tierInsurerFilter} onValueChange={setTierInsurerFilter}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full sm:w-[200px]">
                   <SelectValue placeholder="All Insurers" />
                 </SelectTrigger>
                 <SelectContent>
@@ -404,7 +404,7 @@ export default function MasterDataManagement() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={() => openSectionDialog()}>
+            <Button onClick={() => openSectionDialog()} className="shrink-0">
               <Plus className="w-4 h-4 mr-2" />
               Add Section
             </Button>

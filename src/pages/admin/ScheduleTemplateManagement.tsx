@@ -265,67 +265,74 @@ export default function ScheduleTemplateManagement() {
       {/* Filters & Actions */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-4 items-end">
-            <div className="space-y-2 min-w-[150px]">
-              <Label>Coverage Rule</Label>
-              <Select value={filterRule} onValueChange={setFilterRule}>
-                <SelectTrigger><SelectValue placeholder="All rules" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All rules</SelectItem>
-                  {coverageRules?.map(r => (
-                    <SelectItem key={r.coverage_rule_code} value={r.coverage_rule_code}>
-                      {r.coverage_rule_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-2">
+                <Label className="text-xs">Coverage Rule</Label>
+                <Select value={filterRule} onValueChange={setFilterRule}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="All rules" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All rules</SelectItem>
+                    {coverageRules?.map(r => (
+                      <SelectItem key={r.coverage_rule_code} value={r.coverage_rule_code}>
+                        {r.coverage_rule_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Insurer</Label>
+                <Select value={filterInsurer} onValueChange={setFilterInsurer}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="All insurers" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All insurers</SelectItem>
+                    {insurers?.map(i => (
+                      <SelectItem key={i.insurer_code} value={i.insurer_code}>
+                        {i.insurer_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Section</Label>
+                <Select value={filterSection} onValueChange={setFilterSection}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="All sections" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All sections</SelectItem>
+                    {sections?.map(s => (
+                      <SelectItem key={s.section_code} value={s.section_code}>
+                        {s.section_code} - {s.section_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-2 min-w-[150px]">
-              <Label>Insurer</Label>
-              <Select value={filterInsurer} onValueChange={setFilterInsurer}>
-                <SelectTrigger><SelectValue placeholder="All insurers" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All insurers</SelectItem>
-                  {insurers?.map(i => (
-                    <SelectItem key={i.insurer_code} value={i.insurer_code}>
-                      {i.insurer_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex justify-end pt-2 border-t">
+              <Button onClick={() => openTemplateDialog()}>
+                <Plus className="w-4 h-4 mr-2" />
+                New Template
+              </Button>
             </div>
-            <div className="space-y-2 min-w-[150px]">
-              <Label>Section</Label>
-              <Select value={filterSection} onValueChange={setFilterSection}>
-                <SelectTrigger><SelectValue placeholder="All sections" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All sections</SelectItem>
-                  {sections?.map(s => (
-                    <SelectItem key={s.section_code} value={s.section_code}>
-                      {s.section_code} - {s.section_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex-1" />
-            <Button onClick={() => openTemplateDialog()}>
-              <Plus className="w-4 h-4 mr-2" />
-              New Template
-            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Templates Table */}
-      <Card>
+      {/* Templates Table - Desktop */}
+      <Card className="hidden lg:block">
         <CardHeader>
           <CardTitle>Templates ({templates?.length || 0})</CardTitle>
           <CardDescription>Manage benefit schedule templates with effective dates</CardDescription>
         </CardHeader>
         <CardContent>
           {templates?.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">No templates found. Create your first template.</p>
+            <div className="text-center py-12">
+              <FileText className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
+              <p className="text-muted-foreground">No templates found</p>
+              <p className="text-sm text-muted-foreground/70">Create your first template</p>
+            </div>
           ) : (
             <Table>
               <TableHeader>
@@ -372,6 +379,54 @@ export default function ScheduleTemplateManagement() {
           )}
         </CardContent>
       </Card>
+
+      {/* Templates Cards - Mobile/Tablet */}
+      <div className="lg:hidden space-y-3">
+        <h3 className="font-semibold">Templates ({templates?.length || 0})</h3>
+        {templates?.length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="py-12 text-center">
+              <FileText className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
+              <p className="text-muted-foreground">No templates found</p>
+            </CardContent>
+          </Card>
+        ) : (
+          templates?.map((template) => (
+            <Card key={template.template_id}>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <Badge variant="outline" className="text-xs">{template.insurer?.insurer_name || template.insurer_code}</Badge>
+                      <Badge variant="secondary" className="text-xs">{template.section?.section_name || template.section_code}</Badge>
+                      <Badge variant={template.status === "ACTIVE" ? "default" : "secondary"} className="text-xs">
+                        {template.status}
+                      </Badge>
+                    </div>
+                    <p className="font-medium text-sm">{template.tier?.tier_label || template.tier_code}</p>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      <span className="font-mono">{template.coverage_rule_code}</span>
+                      <span className="mx-2">•</span>
+                      <span>Effective: {format(new Date(template.effective_date), "MMM d, yyyy")}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openItemsDialog(template)}>
+                      <Settings className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openTemplateDialog(template)}>
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteDialog(template)}>
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
 
       {/* Template Header Dialog */}
       <Dialog open={templateDialog} onOpenChange={setTemplateDialog}>
