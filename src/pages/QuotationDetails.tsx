@@ -1,6 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { format } from "date-fns";
-import { ArrowLeft, Edit, Download, FileText, Users, Calendar, Shield, Building2, ClipboardCheck, Clock, User, Hash, Layers } from "lucide-react";
+import { ArrowLeft, Edit, Download, FileText, Users, Calendar, Shield, Building2, ClipboardCheck, Clock, User, Hash, Layers, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,7 +12,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useApprovalHistory, getApprovalByRole } from "@/hooks/useApprovalHistory";
 import { useInsurers } from "@/hooks/useMasterData";
 import { useQuotationPackages, useQuotationPremiums } from "@/hooks/useQuotationWorkflow";
+import { useQuotationPDF, fetchQuotationDataForPDF } from "@/hooks/useQuotationPDF";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
 
 type QuotationStatus = Database["public"]["Enums"]["quotation_status"];
@@ -51,7 +53,21 @@ export default function QuotationDetails() {
   const { data: packages } = useQuotationPackages(id || "");
   const { data: premiums } = useQuotationPremiums(id || "");
   const { data: approvals } = useApprovalHistory(id);
+  const { generatePDF, isGenerating } = useQuotationPDF();
 
+  const handleDownloadPDF = async () => {
+    if (!id) return;
+    
+    try {
+      toast.loading("Generating PDF...", { id: "pdf-generation" });
+      const pdfData = await fetchQuotationDataForPDF(id);
+      await generatePDF(pdfData);
+      toast.success("PDF generated successfully!", { id: "pdf-generation" });
+    } catch (error) {
+      console.error("PDF generation error:", error);
+      toast.error("Failed to generate PDF", { id: "pdf-generation" });
+    }
+  };
   const getInsurerName = (code: string): string => {
     return insurersList?.find(i => i.insurer_code === code)?.insurer_name || code;
   };
@@ -181,9 +197,18 @@ export default function QuotationDetails() {
           </div>
           
           <div className="flex flex-wrap gap-2 ml-12 md:ml-0">
-            <Button variant="secondary" className="bg-white/10 hover:bg-white/20 text-white border-white/20">
-              <Download className="w-4 h-4 mr-2" />
-              Download PDF
+            <Button 
+              variant="secondary" 
+              className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+              onClick={handleDownloadPDF}
+              disabled={isGenerating}
+            >
+              {isGenerating ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              {isGenerating ? "Generating..." : "Download PDF"}
             </Button>
             {canEdit && (
               <Link to={`/quotation/edit/${quotation.id}`}>
