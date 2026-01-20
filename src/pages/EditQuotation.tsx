@@ -78,6 +78,7 @@ export default function EditQuotation() {
     id: quotation.id, // Use the actual database UUID for updates
     insuredName: quotation.insured_name,
     insuredAddress: quotation.insured_address,
+    lineOfBusiness: quotation.line_of_business || "",
     startDate: new Date(quotation.start_date),
     endDate: new Date(quotation.end_date),
     benefitsOption: quotation.benefits_option as any,

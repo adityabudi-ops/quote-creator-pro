@@ -925,6 +925,7 @@ export type Database = {
           insured_address: string
           insured_groups: Json
           insured_name: string
+          line_of_business: string | null
           quotation_number: string
           start_date: string
           status: Database["public"]["Enums"]["quotation_status"]
@@ -943,6 +944,7 @@ export type Database = {
           insured_address: string
           insured_groups: Json
           insured_name: string
+          line_of_business?: string | null
           quotation_number: string
           start_date: string
           status?: Database["public"]["Enums"]["quotation_status"]
@@ -961,6 +963,7 @@ export type Database = {
           insured_address?: string
           insured_groups?: Json
           insured_name?: string
+          line_of_business?: string | null
           quotation_number?: string
           start_date?: string
           status?: Database["public"]["Enums"]["quotation_status"]
