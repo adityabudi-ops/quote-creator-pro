@@ -31,6 +31,7 @@ import type { DemographicType } from "@/hooks/useMasterData";
 const quotationSchema = z.object({
   insuredName: z.string().min(1, "Insured name is required").max(200, "Name too long"),
   insuredAddress: z.string().min(1, "Address is required").max(500, "Address too long"),
+  lineOfBusiness: z.string().min(1, "Line of business is required").max(200, "Too long"),
   startDate: z.date({ required_error: "Start date is required" }),
   endDate: z.date({ required_error: "End date is required" }),
   coverageRuleCode: z.string().min(1, "Coverage rule is required"),
@@ -96,6 +97,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
     defaultValues: {
       insuredName: initialData?.insuredName || "",
       insuredAddress: initialData?.insuredAddress || "",
+      lineOfBusiness: (initialData as any)?.lineOfBusiness || "",
       startDate: initialData?.startDate || new Date(),
       endDate: initialData?.endDate || subDays(addMonths(new Date(), 12), 1),
       coverageRuleCode: initialData?.benefitsOption || "",
@@ -189,7 +191,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
     let isValid = true;
 
     if (currentStep === 1) {
-      isValid = await form.trigger(["insuredName", "insuredAddress"]);
+      isValid = await form.trigger(["insuredName", "insuredAddress", "lineOfBusiness"]);
     } else if (currentStep === 2) {
       isValid = await form.trigger(["startDate", "endDate", "coverageRuleCode"]);
     } else if (currentStep === 3) {
@@ -263,6 +265,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
           .update({
             insured_name: data.insuredName,
             insured_address: data.insuredAddress,
+            line_of_business: data.lineOfBusiness,
             start_date: format(data.startDate, "yyyy-MM-dd"),
             end_date: format(data.endDate, "yyyy-MM-dd"),
             coverage_rule_code: data.coverageRuleCode,
@@ -309,6 +312,7 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
             quotation_number: quotationNumber,
             insured_name: data.insuredName,
             insured_address: data.insuredAddress,
+            line_of_business: data.lineOfBusiness,
             start_date: format(data.startDate, "yyyy-MM-dd"),
             end_date: format(data.endDate, "yyyy-MM-dd"),
             coverage_rule_code: data.coverageRuleCode,
@@ -494,6 +498,20 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                         <Textarea placeholder="Enter full address" className="min-h-[100px]" {...field} />
                       </FormControl>
                       <FormDescription>Complete registered business address</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="lineOfBusiness"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Line of Business *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Manufacturing, Technology, Retail" {...field} />
+                      </FormControl>
+                      <FormDescription>Industry or business sector of the insured</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -764,12 +782,16 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Insured Info */}
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-3">
                   <div>
                     <h4 className="text-sm font-medium text-muted-foreground mb-1">Insured Name</h4>
                     <p className="font-medium">{form.getValues("insuredName")}</p>
                   </div>
                   <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Line of Business</h4>
+                    <p className="font-medium">{form.getValues("lineOfBusiness")}</p>
+                  </div>
+                  <div className="md:col-span-1">
                     <h4 className="text-sm font-medium text-muted-foreground mb-1">Address</h4>
                     <p className="text-sm">{form.getValues("insuredAddress")}</p>
                   </div>

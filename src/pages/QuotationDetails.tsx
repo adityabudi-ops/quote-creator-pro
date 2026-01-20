@@ -171,6 +171,11 @@ export default function QuotationDetails() {
                 <StatusBadge status={quotation.status} />
               </div>
               <p className="text-white/80 text-lg">{quotation.insured_name}</p>
+              {quotation.line_of_business && (
+                <p className="text-white/70 text-sm">
+                  <span className="text-white/50">Line of Business:</span> {quotation.line_of_business}
+                </p>
+              )}
               <p className="text-white/60 text-sm max-w-md">{quotation.insured_address}</p>
             </div>
           </div>
