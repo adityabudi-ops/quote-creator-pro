@@ -1,5 +1,5 @@
 import { Navigate } from "react-router-dom";
-import { QuotationForm } from "@/components/quotation/QuotationForm";
+import { QuotationForm } from "@/components/quotation/QuotationFormWithScenarios";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function NewQuotation() {
@@ -18,7 +18,7 @@ export default function NewQuotation() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">New Quotation</h1>
         <p className="text-muted-foreground">
-          Create a new SME Employee Benefits quotation
+          Create a new SME Employee Benefits quotation with optional alternative scenarios
         </p>
       </div>
 
