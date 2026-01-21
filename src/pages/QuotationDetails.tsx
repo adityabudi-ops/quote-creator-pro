@@ -1,18 +1,22 @@
 import { useParams, Link } from "react-router-dom";
 import { format } from "date-fns";
-import { ArrowLeft, Edit, Download, FileText, Users, Calendar, Shield, Building2, ClipboardCheck, Clock, User, Hash, Layers, Loader2 } from "lucide-react";
+import { ArrowLeft, Edit, Download, FileText, Users, Calendar, Shield, Building2, ClipboardCheck, Clock, User, Hash, Layers, Loader2, GitBranch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/quotation/StatusBadge";
 import { ApprovalInfo } from "@/components/quotation/ApprovalInfo";
+import { ScenarioPreview } from "@/components/quotation/ScenarioPreview";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useApprovalHistory, getApprovalByRole } from "@/hooks/useApprovalHistory";
-import { useInsurers } from "@/hooks/useMasterData";
+import { useInsurers, useCoverageRules } from "@/hooks/useMasterData";
 import { useQuotationPackages, useQuotationPremiums } from "@/hooks/useQuotationWorkflow";
-import { useQuotationPDF, fetchQuotationDataForPDF } from "@/hooks/useQuotationPDF";
+import { useQuotationScenarios, useScenarioDetails } from "@/hooks/useScenarioWorkflow";
+import { useScenarioPDF, fetchQuotationWithScenarios } from "@/hooks/useScenarioPDF";
+import { getLineOfBusinessLabel } from "@/types/lineOfBusiness";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
@@ -26,9 +30,143 @@ const SECTION_LABELS: Record<string, string> = {
   MA: "Maternity",
 };
 
+// Inline component for scenario details
+function ScenarioDetailsPanel({ 
+  scenarioId, 
+  scenario, 
+  getInsurerName, 
+  getCoverageRuleName 
+}: { 
+  scenarioId: string; 
+  scenario: any; 
+  getInsurerName: (code: string) => string;
+  getCoverageRuleName: (code: string) => string;
+}) {
+  const { data: details, isLoading } = useScenarioDetails(scenarioId);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!details) {
+    return <p className="text-muted-foreground">No details available</p>;
+  }
+
+  const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString("id-ID")}`;
+
+  return (
+    <div className="space-y-6">
+      {/* Scenario Info */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <div>
+          <p className="text-sm text-muted-foreground">Coverage Rule</p>
+          <p className="font-medium">{getCoverageRuleName(scenario.coverage_rule_code)}</p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Insurers</p>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {(scenario.insurance_companies || []).map((code: string) => (
+              <Badge key={code} variant="secondary" className="text-xs">{getInsurerName(code)}</Badge>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Status</p>
+          <Badge variant={scenario.status === "resolved" ? "default" : "outline"}>{scenario.status}</Badge>
+        </div>
+      </div>
+
+      {/* Premium Comparison */}
+      {details.premiumOveralls && details.premiumOveralls.length > 0 && (
+        <div>
+          <h4 className="font-semibold mb-3">Premium Comparison</h4>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Insurer</TableHead>
+                <TableHead className="text-right">Gross Premium</TableHead>
+                <TableHead className="text-right">Fees & Tax</TableHead>
+                <TableHead className="text-right">Grand Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {details.premiumOveralls.map((overall: any) => (
+                <TableRow key={overall.insurer_code}>
+                  <TableCell className="font-medium">{getInsurerName(overall.insurer_code)}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(overall.gross_total_all_packages || 0)}</TableCell>
+                  <TableCell className="text-right text-muted-foreground">
+                    {formatCurrency((overall.admin_fee || 0) + (overall.stamp_duty || 0) + (overall.vat_amount || 0))}
+                  </TableCell>
+                  <TableCell className="text-right font-bold text-primary">
+                    {formatCurrency(overall.grand_total || 0)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Tier Mapping */}
+      {details.offers && details.offers.length > 0 && (
+        <div>
+          <h4 className="font-semibold mb-3">Tier Mapping</h4>
+          {details.packages?.map((pkgWrapper: any) => {
+            const pkg = pkgWrapper.package;
+            if (!pkg) return null;
+            
+            const pkgOffers = details.offers.filter((o: any) => o.package_id === pkg.package_id);
+            const sectionCodes = [...new Set(pkgOffers.map((o: any) => o.section_code))];
+
+            return (
+              <div key={pkg.package_id} className="mb-4">
+                <p className="text-sm font-medium mb-2">{pkg.package_name}</p>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Benefit</TableHead>
+                      {(scenario.insurance_companies || []).map((code: string) => (
+                        <TableHead key={code} className="text-center">{getInsurerName(code)}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sectionCodes.map((sectionCode) => (
+                      <TableRow key={sectionCode}>
+                        <TableCell>{SECTION_LABELS[sectionCode as string] || sectionCode}</TableCell>
+                        {(scenario.insurance_companies || []).map((insurerCode: string) => {
+                          const offer = pkgOffers.find((o: any) => o.insurer_code === insurerCode && o.section_code === sectionCode);
+                          return (
+                            <TableCell key={insurerCode} className="text-center">
+                              {offer?.status === "QUOTED" ? (
+                                <Badge variant="default" className="font-mono text-xs">{offer.offered_tier_code}</Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-xs">N/A</Badge>
+                              )}
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function QuotationDetails() {
   const { id } = useParams<{ id: string }>();
   const { data: insurersList } = useInsurers(false);
+  const { data: coverageRulesList } = useCoverageRules(false);
   
   const { data: quotation, isLoading } = useQuery({
     queryKey: ["quotation", id],
@@ -52,15 +190,16 @@ export default function QuotationDetails() {
 
   const { data: packages } = useQuotationPackages(id || "");
   const { data: premiums } = useQuotationPremiums(id || "");
+  const { data: scenarios } = useQuotationScenarios(id || "");
   const { data: approvals } = useApprovalHistory(id);
-  const { generatePDF, isGenerating } = useQuotationPDF();
+  const { generatePDF, isGenerating } = useScenarioPDF();
 
   const handleDownloadPDF = async () => {
     if (!id) return;
     
     try {
       toast.loading("Generating PDF...", { id: "pdf-generation" });
-      const pdfData = await fetchQuotationDataForPDF(id);
+      const pdfData = await fetchQuotationWithScenarios(id);
       await generatePDF(pdfData);
       toast.success("PDF generated successfully!", { id: "pdf-generation" });
     } catch (error) {
@@ -68,8 +207,13 @@ export default function QuotationDetails() {
       toast.error("Failed to generate PDF", { id: "pdf-generation" });
     }
   };
+
   const getInsurerName = (code: string): string => {
     return insurersList?.find(i => i.insurer_code === code)?.insurer_name || code;
+  };
+
+  const getCoverageRuleName = (code: string): string => {
+    return coverageRulesList?.find(r => r.coverage_rule_code === code)?.coverage_rule_name || code;
   };
 
   if (isLoading) {
@@ -236,11 +380,52 @@ export default function QuotationDetails() {
             <p className="text-2xl font-bold">{quotation.insurance_companies?.length || 0}</p>
           </div>
           <div className="text-center md:text-left">
-            <p className="text-white/60 text-xs uppercase tracking-wider mb-1">Packages</p>
-            <p className="text-2xl font-bold">{packages?.length || 1}</p>
+            <p className="text-white/60 text-xs uppercase tracking-wider mb-1">Scenarios</p>
+            <p className="text-2xl font-bold">{scenarios?.length || 0}</p>
           </div>
         </div>
       </div>
+
+      {/* Scenarios Section - If scenarios exist */}
+      {scenarios && scenarios.length > 0 && (
+        <Card className="overflow-hidden border-0 shadow-card">
+          <CardHeader className="bg-gradient-to-r from-primary/10 to-pink-500/10 border-b">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <div className="p-2 rounded-lg bg-primary/20">
+                <GitBranch className="w-5 h-5 text-primary" />
+              </div>
+              Quote Scenarios ({scenarios.length})
+              <span className="ml-auto text-xs font-normal text-muted-foreground">
+                Base quote plus alternative configurations
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Tabs defaultValue={scenarios[0]?.scenario_id} className="w-full">
+              <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0">
+                {scenarios.map((scenario: any) => (
+                  <TabsTrigger
+                    key={scenario.scenario_id}
+                    value={scenario.scenario_id}
+                    className={cn(
+                      "rounded-none border-b-2 border-transparent px-6 py-3 data-[state=active]:border-primary data-[state=active]:bg-transparent",
+                      scenario.is_base ? "font-semibold" : ""
+                    )}
+                  >
+                    {scenario.is_base && <Badge variant="default" className="mr-2 text-xs">Base</Badge>}
+                    {scenario.scenario_name}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              {scenarios.map((scenario: any) => (
+                <TabsContent key={scenario.scenario_id} value={scenario.scenario_id} className="p-6">
+                  <ScenarioDetailsPanel scenarioId={scenario.scenario_id} scenario={scenario} getInsurerName={getInsurerName} getCoverageRuleName={getCoverageRuleName} />
+                </TabsContent>
+              ))}
+            </Tabs>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Main Content */}
       <div className="grid gap-6 lg:grid-cols-3">
