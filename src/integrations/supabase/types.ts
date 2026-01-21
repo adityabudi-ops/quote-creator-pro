@@ -912,6 +912,479 @@ export type Database = {
           },
         ]
       }
+      quotation_revision: {
+        Row: {
+          change_description: string | null
+          changed_by: string | null
+          created_at: string
+          quotation_id: string
+          revision_id: string
+          revision_number: number
+          scenario_id: string
+          snapshot_data: Json | null
+        }
+        Insert: {
+          change_description?: string | null
+          changed_by?: string | null
+          created_at?: string
+          quotation_id: string
+          revision_id?: string
+          revision_number: number
+          scenario_id: string
+          snapshot_data?: Json | null
+        }
+        Update: {
+          change_description?: string | null
+          changed_by?: string | null
+          created_at?: string
+          quotation_id?: string
+          revision_id?: string
+          revision_number?: number
+          scenario_id?: string
+          snapshot_data?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_revision_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_revision_scenario_id_fkey"
+            columns: ["scenario_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_scenario"
+            referencedColumns: ["scenario_id"]
+          },
+        ]
+      }
+      quotation_scenario: {
+        Row: {
+          benefits: Json
+          coverage_rule_code: string
+          created_at: string
+          insurance_companies: string[]
+          is_base: boolean
+          parent_revision_id: string | null
+          quotation_id: string
+          revision: number
+          scenario_id: string
+          scenario_name: string
+          scenario_number: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          benefits: Json
+          coverage_rule_code: string
+          created_at?: string
+          insurance_companies: string[]
+          is_base?: boolean
+          parent_revision_id?: string | null
+          quotation_id: string
+          revision?: number
+          scenario_id?: string
+          scenario_name?: string
+          scenario_number?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          benefits?: Json
+          coverage_rule_code?: string
+          created_at?: string
+          insurance_companies?: string[]
+          is_base?: boolean
+          parent_revision_id?: string | null
+          quotation_id?: string
+          revision?: number
+          scenario_id?: string
+          scenario_name?: string
+          scenario_number?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_scenario_parent_revision_id_fkey"
+            columns: ["parent_revision_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_scenario"
+            referencedColumns: ["scenario_id"]
+          },
+          {
+            foreignKeyName: "quotation_scenario_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotation_scenario_offer: {
+        Row: {
+          created_at: string
+          insurer_code: string
+          notes: string | null
+          offer_id: string
+          offered_tier_code: string | null
+          package_id: string
+          pricing_effective_date_used: string | null
+          scenario_id: string
+          section_code: string
+          status: string
+          template_id_used: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          insurer_code: string
+          notes?: string | null
+          offer_id?: string
+          offered_tier_code?: string | null
+          package_id: string
+          pricing_effective_date_used?: string | null
+          scenario_id: string
+          section_code: string
+          status?: string
+          template_id_used?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          insurer_code?: string
+          notes?: string | null
+          offer_id?: string
+          offered_tier_code?: string | null
+          package_id?: string
+          pricing_effective_date_used?: string | null
+          scenario_id?: string
+          section_code?: string
+          status?: string
+          template_id_used?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_scenario_offer_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_package"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "quotation_scenario_offer_scenario_id_fkey"
+            columns: ["scenario_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_scenario"
+            referencedColumns: ["scenario_id"]
+          },
+        ]
+      }
+      quotation_scenario_package: {
+        Row: {
+          created_at: string
+          id: string
+          package_id: string
+          scenario_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          package_id: string
+          scenario_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          package_id?: string
+          scenario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_scenario_package_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_package"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "quotation_scenario_package_scenario_id_fkey"
+            columns: ["scenario_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_scenario"
+            referencedColumns: ["scenario_id"]
+          },
+        ]
+      }
+      quotation_scenario_premium_detail: {
+        Row: {
+          annual_premium_per_member: number
+          annual_premium_total: number
+          created_at: string
+          demographic: Database["public"]["Enums"]["demographic_type"]
+          id: string
+          insurer_code: string
+          lives: number
+          package_id: string
+          scenario_id: string
+          section_code: string
+        }
+        Insert: {
+          annual_premium_per_member?: number
+          annual_premium_total?: number
+          created_at?: string
+          demographic: Database["public"]["Enums"]["demographic_type"]
+          id?: string
+          insurer_code: string
+          lives?: number
+          package_id: string
+          scenario_id: string
+          section_code: string
+        }
+        Update: {
+          annual_premium_per_member?: number
+          annual_premium_total?: number
+          created_at?: string
+          demographic?: Database["public"]["Enums"]["demographic_type"]
+          id?: string
+          insurer_code?: string
+          lives?: number
+          package_id?: string
+          scenario_id?: string
+          section_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_scenario_premium_detail_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_package"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "quotation_scenario_premium_detail_scenario_id_fkey"
+            columns: ["scenario_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_scenario"
+            referencedColumns: ["scenario_id"]
+          },
+        ]
+      }
+      quotation_scenario_premium_overall: {
+        Row: {
+          admin_fee: number | null
+          created_at: string
+          grand_total: number
+          gross_total_all_packages: number
+          id: string
+          insurer_code: string
+          scenario_id: string
+          stamp_duty: number | null
+          vat_amount: number | null
+        }
+        Insert: {
+          admin_fee?: number | null
+          created_at?: string
+          grand_total?: number
+          gross_total_all_packages?: number
+          id?: string
+          insurer_code: string
+          scenario_id: string
+          stamp_duty?: number | null
+          vat_amount?: number | null
+        }
+        Update: {
+          admin_fee?: number | null
+          created_at?: string
+          grand_total?: number
+          gross_total_all_packages?: number
+          id?: string
+          insurer_code?: string
+          scenario_id?: string
+          stamp_duty?: number | null
+          vat_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_scenario_premium_overall_scenario_id_fkey"
+            columns: ["scenario_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_scenario"
+            referencedColumns: ["scenario_id"]
+          },
+        ]
+      }
+      quotation_scenario_premium_summary: {
+        Row: {
+          created_at: string
+          fees_package: number | null
+          gross_premium_package: number
+          id: string
+          insurer_code: string
+          package_id: string
+          scenario_id: string
+          tax_package: number | null
+        }
+        Insert: {
+          created_at?: string
+          fees_package?: number | null
+          gross_premium_package?: number
+          id?: string
+          insurer_code: string
+          package_id: string
+          scenario_id: string
+          tax_package?: number | null
+        }
+        Update: {
+          created_at?: string
+          fees_package?: number | null
+          gross_premium_package?: number
+          id?: string
+          insurer_code?: string
+          package_id?: string
+          scenario_id?: string
+          tax_package?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_scenario_premium_summary_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_package"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "quotation_scenario_premium_summary_scenario_id_fkey"
+            columns: ["scenario_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_scenario"
+            referencedColumns: ["scenario_id"]
+          },
+        ]
+      }
+      quotation_scenario_requested_tier: {
+        Row: {
+          created_at: string
+          id: string
+          package_id: string
+          requested_tier_code: string | null
+          scenario_id: string
+          section_code: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          package_id: string
+          requested_tier_code?: string | null
+          scenario_id: string
+          section_code: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          package_id?: string
+          requested_tier_code?: string | null
+          scenario_id?: string
+          section_code?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_scenario_requested_tier_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_package"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "quotation_scenario_requested_tier_scenario_id_fkey"
+            columns: ["scenario_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_scenario"
+            referencedColumns: ["scenario_id"]
+          },
+        ]
+      }
+      quotation_scenario_schedule_item: {
+        Row: {
+          created_at: string
+          currency: string | null
+          display_order: number
+          id: string
+          insurer_code: string
+          is_group_header: boolean
+          item_code: string
+          item_name: string
+          limit_period: string | null
+          package_id: string
+          scenario_id: string
+          section_code: string
+          sub_label: string | null
+          unit_text: string | null
+          value_amount: number | null
+          value_text: string | null
+          value_type: Database["public"]["Enums"]["value_type"]
+        }
+        Insert: {
+          created_at?: string
+          currency?: string | null
+          display_order?: number
+          id?: string
+          insurer_code: string
+          is_group_header?: boolean
+          item_code: string
+          item_name: string
+          limit_period?: string | null
+          package_id: string
+          scenario_id: string
+          section_code: string
+          sub_label?: string | null
+          unit_text?: string | null
+          value_amount?: number | null
+          value_text?: string | null
+          value_type?: Database["public"]["Enums"]["value_type"]
+        }
+        Update: {
+          created_at?: string
+          currency?: string | null
+          display_order?: number
+          id?: string
+          insurer_code?: string
+          is_group_header?: boolean
+          item_code?: string
+          item_name?: string
+          limit_period?: string | null
+          package_id?: string
+          scenario_id?: string
+          section_code?: string
+          sub_label?: string | null
+          unit_text?: string | null
+          value_amount?: number | null
+          value_text?: string | null
+          value_type?: Database["public"]["Enums"]["value_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_scenario_schedule_item_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_package"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "quotation_scenario_schedule_item_scenario_id_fkey"
+            columns: ["scenario_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_scenario"
+            referencedColumns: ["scenario_id"]
+          },
+        ]
+      }
       quotations: {
         Row: {
           benefits: Json

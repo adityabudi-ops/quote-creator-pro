@@ -508,10 +508,21 @@ export function QuotationForm({ mode = "create", initialData, onCancel }: Quotat
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Line of Business *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., Manufacturing, Technology, Retail" {...field} />
-                      </FormControl>
-                      <FormDescription>Industry or business sector of the insured</FormDescription>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select line of business" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="bg-popover">
+                          <SelectItem value="eb_medical">Employee Benefits – Medical</SelectItem>
+                          <SelectItem value="eb_medical_life">Employee Benefits – Medical + Life (Bundle)</SelectItem>
+                          <SelectItem value="eb_life">Employee Benefits – Life Only</SelectItem>
+                          <SelectItem value="eb_pa">Employee Benefits – Personal Accident</SelectItem>
+                          <SelectItem value="eb_other">Employee Benefits – Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>Type of insurance coverage</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
